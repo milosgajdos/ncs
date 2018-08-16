@@ -38,50 +38,49 @@ import (
 )
 
 func main() {
-	ret, dev := ncs.CreateDevice(0)
-	if ret != ncs.StatusOK {
-		fmt.Printf("NCS Error Create(): %#v\n", ret)
+	fmt.Println("Creating NCS device handle")
+	dev, err := ncs.NewDevice(0)
+	if err != nil {
+		fmt.Println("Error:", err)
 		os.Exit(1)
 	}
+	fmt.Println("NCS device handle created")
 
-	ret = dev.Open()
-	if ret != ncs.StatusOK {
-		fmt.Printf("NCS Error Open(): %#v\n", ret)
+	fmt.Println("Opening NCS device")
+	err = dev.Open()
+	if err != nil {
+		fmt.Println("Error:", err)
 		os.Exit(1)
 	}
+	fmt.Println("NCS device opened")
 
-	ret = dev.Close()
-	if ret != ncs.StatusOK {
-		fmt.Printf("NCS Error Close(): %#v\n", ret)
+	fmt.Println("Closing NCS device")
+	err = dev.Close()
+	if err != nil {
+		fmt.Println("Error:", err)
 		os.Exit(1)
 	}
+	fmt.Println("NCS device closed")
 
-	ret = ncs.DestroyDevice(dev)
-	if ret != ncs.StatusOK {
-		fmt.Printf("NCS Error Destroy(): %#v\n", ret)
+	fmt.Println("Destroyig NCS device")
+	err = dev.Destroy()
+	if err != nil {
+		fmt.Println(err)
 		os.Exit(1)
 	}
+	fmt.Println("NCS device destroyed")
 }
 ```
 
-This will most likely print the same errors as the official C++ example released by Intel - the API V2 is badly broken as of now:
+If your Movidius NCS device is plugged in you should see the following output when running the program above:
 
+```console
+Creating NCS device handle
+NCS device handle created
+Opening NCS device
+NCS device opened
+Closing NCS device
+NCS device closed
+Destroyig NCS device
+NCS device destroyed
 ```
-Can't create semaphore
-: Function not implemented
-Can't create semaphore
-: Function not implemented
-E: [         0] dispatcherAddEvent:533	can't wait semaphore
-
-W: [         0] dispatcherAddEvent:545	No more semaphores. Increase XLink or OS resources
-
-E: [         0] dispatcherAddEvent:533	can't wait semaphore
-
-W: [         0] dispatcherAddEvent:545	No more semaphores. Increase XLink or OS resources
-
-E: [         0] XLinkOpenStream:909	Max streamId reached deaddead!
-W: [         0] ncDeviceOpen:558	can't open stream
-
-NCS Error Open(): -2
-```
-

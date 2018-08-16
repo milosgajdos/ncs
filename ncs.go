@@ -5,15 +5,18 @@ package ncs
 #include <ncs.h>
 */
 import "C"
-import "unsafe"
+import (
+	"fmt"
+	"unsafe"
+)
 
-// Status is the NCSDK API status code returned by most API calls.
+// StatusCode is the NCSDK API status code as returned by most API calls.
 // It usually reports the status of the neural compute stick.
-type Status int
+type StatusCode int
 
 const (
-	// StatusOK when the API function call worked as expected
-	StatusOK Status = 0
+	// StatusOK means the API function call worked as expected
+	StatusOK StatusCode = 0
 
 	// StatusBusy means device is busy, retry later.
 	StatusBusy = -1
@@ -24,10 +27,10 @@ const (
 	// StatusOutOfMemory means the host is out of memory.
 	StatusOutOfMemory = -3
 
-	// StatusDeviceNotFound means no device at the given index or name.
+	// StatusDeviceNotFound means no device has been found at the given index or name.
 	StatusDeviceNotFound = -4
 
-	// StatusInvalidParameters when at least one of the given parameters is wrong.
+	// StatusInvalidParameters means at least one of the given parameters is wrong.
 	StatusInvalidParameters = -5
 
 	// StatusTimeout means there was a timeout in the communication with the device.
@@ -36,94 +39,133 @@ const (
 	// StatusCmdNotFound means the file to boot the device was not found.
 	StatusCmdNotFound = -7
 
-	// StatusNotAllocated means the graph or fifo has not been allocated
+	// StatusNotAllocated means the graph or fifo has not been allocated.
 	StatusNotAllocated = -8
 
-	// StatusUnauthorized means an unauthorized operation has been attempted
+	// StatusUnauthorized means an unauthorized operation has been attempted.
 	StatusUnauthorized = -9
 
 	// StatusUnsupportedGraphFile means the graph file version is not supported.
 	StatusUnsupportedGraphFile = -10
 
-	// StatusUnsupportedConfigFile is reserved for future use
+	// StatusUnsupportedConfigFile is reserved for future use.
 	StatusUnsupportedConfigFile = -11
 
-	// StatusUnsupportedFeature means the operation used a feature unsupported by this firmware version
+	// StatusUnsupportedFeature means the operation used a feature unsupported by this firmware version.
 	StatusUnsupportedFeature = -12
 
-	// StatusMyriadError when an error has been reported by the device, use MVNC_DEBUG_INFO.
+	// StatusMyriadError when an error has been reported by device, use MVNC_DEBUG_INFO.
 	StatusMyriadError = -13
 
 	// StatusInvalidDataLength means an invalid data length has been passed when getting or setting an option
 	StatusInvalidDataLength = -14
 
-	// StatusInvalidHandle means an n invalid handle has been passed to a function
+	// StatusInvalidHandle means an invalid handle has been passed to a function
 	StatusInvalidHandle = -15
 )
 
-// LogLevel defines application logging levels
-type LogLevel int
-
-const (
-	// Debug logs debug and above (full verbosity)
-	Debug LogLevel = iota
-
-	// Info logs info and above
-	Info
-
-	// Warn logs warning and above (default)
-	Warn
-
-	// Error logs errors and above
-	Error
-
-	// Fatal logs fatal errors only
-	Fatal
-)
+// String method to satisfy fmt.Stringer interface
+func (nc StatusCode) String() string {
+	switch nc {
+	case StatusOK:
+		return "OK"
+	case StatusBusy:
+		return "Device busy"
+	case StatusError:
+		return "Unexpected error"
+	case StatusOutOfMemory:
+		return "Host out of memory"
+	case StatusDeviceNotFound:
+		return "Device not found"
+	case StatusInvalidParameters:
+		return "Invalid parameters"
+	case StatusTimeout:
+		return "Device timeout"
+	case StatusCmdNotFound:
+		return "Device bootloader not found"
+	case StatusNotAllocated:
+		return "Unallocated resource"
+	case StatusUnauthorized:
+		return "Unauthorized operation"
+	case StatusUnsupportedGraphFile:
+		return "Unsupported graph file"
+	case StatusUnsupportedConfigFile:
+		return "Unsupported configuration"
+	case StatusUnsupportedFeature:
+		return "Unsupported feature"
+	case StatusMyriadError:
+		return "Movidius VPU failure"
+	case StatusInvalidDataLength:
+		return "Invalid data length when setting options"
+	case StatusInvalidHandle:
+		return "Invalid handle"
+	default:
+		return "Unknown status"
+	}
+}
 
 // Device is Neural Compute Stick (NCS) device
 type Device struct {
 	handle unsafe.Pointer
 }
 
-// CreateDevice creates new NCS device and returns it
+// NewDevice creates new NCS device handle and returns it
 //
 // For more information:
 // https://movidius.github.io/ncsdk/ncapi/ncapi2/c_api/ncDeviceCreate.html
-func CreateDevice(index int) (Status, *Device) {
+func NewDevice(index int) (*Device, error) {
 	var handle unsafe.Pointer
-	s := C.ncs_DeviceCreate(C.int(index), &handle)
 
-	return Status(s), &Device{handle: handle}
+	c := C.ncs_DeviceCreate(C.int(index), &handle)
+
+	if StatusCode(c) == StatusOK {
+		return &Device{handle: handle}, nil
+	}
+
+	return nil, fmt.Errorf("Failed to create new device: %s", StatusCode(c))
 }
 
-// Open initializes a NCS device and opens communication
+// Open initializes NCS device and opens device communication channel
+// It returns error if it fails to open the device.
 //
 // For more information:
 // https://movidius.github.io/ncsdk/ncapi/ncapi2/c_api/ncDeviceOpen.html
-func (d *Device) Open() Status {
-	ret := C.ncs_DeviceOpen(d.handle)
+func (d *Device) Open() error {
+	c := C.ncs_DeviceOpen(d.handle)
 
-	return Status(ret)
+	if StatusCode(c) == StatusOK {
+		return nil
+	}
+
+	return fmt.Errorf("Failed to open device: %s", StatusCode(c))
 }
 
-// Close closes communication with a NCS device
+// Close closes the communication channel with NCS device.
+// It returns error if it fails to close the communication channel.
 //
 // For more information:
 // https://movidius.github.io/ncsdk/ncapi/ncapi2/c_api/ncDeviceClose.html
-func (d *Device) Close() Status {
-	res := C.ncs_DeviceClose(d.handle)
+func (d *Device) Close() error {
+	c := C.ncs_DeviceClose(d.handle)
 
-	return Status(res)
+	if StatusCode(c) == StatusOK {
+		return nil
+	}
+
+	return fmt.Errorf("Failed to close device: %s", StatusCode(c))
 }
 
-// DestroyDevice destroys a handle for a NCS compute device and frees associated resources.
-// This function must be called for every device that was initialized with CreateDevice()
+// Destroy destroys NCS device handle and frees associated resources.
+// This function must be called for every device that was initialized with CreateDevice().
 //
 // For more information:
 // https://movidius.github.io/ncsdk/ncapi/ncapi2/c_api/ncDeviceDestroy.html
-func DestroyDevice(d *Device) Status {
-	s := C.ncs_DeviceDestroy(&d.handle)
+func (d *Device) Destroy() error {
+	c := C.ncs_DeviceDestroy(&d.handle)
 
-	return Status(s)
+	if StatusCode(c) == StatusOK {
+		return nil
+	}
+
+	return fmt.Errorf("Failed to destroy device: %s", StatusCode(c))
 }
