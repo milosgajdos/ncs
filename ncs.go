@@ -156,7 +156,7 @@ func (d *Device) Close() error {
 }
 
 // Destroy destroys NCS device handle and frees associated resources.
-// This function must be called for every device that was initialized with CreateDevice().
+// This function must be called for every device that was initialized with NewDevice().
 //
 // For more information:
 // https://movidius.github.io/ncsdk/ncapi/ncapi2/c_api/ncDeviceDestroy.html
@@ -168,4 +168,45 @@ func (d *Device) Destroy() error {
 	}
 
 	return fmt.Errorf("Failed to destroy device: %s", StatusCode(c))
+}
+
+// Graph is NCSDK neural network graph
+type Graph struct {
+	handle unsafe.Pointer
+	d      *Device
+}
+
+// NewGraph creates new Graph with given name and returns it
+// It returns error if it fails to create new graph
+//
+// For more information:
+// https://movidius.github.io/ncsdk/ncapi/ncapi2/c_api/ncGraphCreate.html
+func NewGraph(name string) (*Graph, error) {
+	var handle unsafe.Pointer
+
+	_name := C.CString(name)
+	defer C.free(unsafe.Pointer(_name))
+
+	c := C.ncs_GraphCreate(_name, &handle)
+
+	if StatusCode(c) == StatusOK {
+		return &Graph{handle: handle}, nil
+	}
+
+	return nil, fmt.Errorf("Failed to create new graph: %s", StatusCode(c))
+}
+
+// Destroy destroys NCS graph handle and frees associated resources.
+// This function must be called for every graph that was initialized with NewGraph().
+//
+// For more information:
+// https://movidius.github.io/ncsdk/ncapi/ncapi2/c_api/ncGraphDestroy.html
+func (g *Graph) Destroy() error {
+	c := C.ncs_GraphDestroy(&g.handle)
+
+	if StatusCode(c) == StatusOK {
+		return nil
+	}
+
+	return fmt.Errorf("Failed to destroy graph: %s", StatusCode(c))
 }

@@ -54,6 +54,22 @@ func main() {
 	}
 	fmt.Println("NCS device opened")
 
+	fmt.Println("Creating NCS graph handle")
+	graph, err := ncs.NewGraph("TestGraph")
+	if err != nil {
+		fmt.Println("Error:", err)
+		os.Exit(1)
+	}
+	fmt.Println("NCS graph created")
+
+	fmt.Println("Destroyig NCS graph")
+	err = graph.Destroy()
+	if err != nil {
+		fmt.Println("Error:", err)
+		os.Exit(1)
+	}
+	fmt.Println("NCS graph destroyed")
+
 	fmt.Println("Closing NCS device")
 	err = dev.Close()
 	if err != nil {
@@ -79,6 +95,10 @@ Creating NCS device handle
 NCS device handle created
 Opening NCS device
 NCS device opened
+Creating NCS graph handle
+NCS graph created
+Destroyig NCS graph
+NCS graph destroyed
 Closing NCS device
 NCS device closed
 Destroyig NCS device

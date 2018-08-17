@@ -9,9 +9,12 @@ extern "C" {
 #endif
 
 int ncs_DeviceCreate(int idx, void **deviceHandle);
-int ncs_DeviceDestroy(void **deviceHandle);
 int ncs_DeviceOpen(void* deviceHandle);
 int ncs_DeviceClose(void* deviceHandle);
+int ncs_DeviceDestroy(void **deviceHandle);
+
+int ncs_GraphCreate(const char* name, void **graphHandle);
+int ncs_GraphDestroy(void **graphHandle);
 
 #ifdef __cplusplus
 }
