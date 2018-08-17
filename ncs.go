@@ -210,3 +210,70 @@ func (g *Graph) Destroy() error {
 
 	return fmt.Errorf("Failed to destroy graph: %s", StatusCode(c))
 }
+
+// FifoType defines FIFO access types
+//
+// For more information:
+// https://movidius.github.io/ncsdk/ncapi/ncapi2/c_api/ncFifoType_t.html
+type FifoType int
+
+const (
+	// FifoHostRO allows Read Only API access and Read-Write Graph access
+	FifoHostRO FifoType = 0
+	// FifoHostWO allows Write Only API acess and Read Only Graph access
+	FifoHostWO = 1
+)
+
+// FifoDataType defines possible data types for FIFOs
+//
+// For more information:
+// https://movidius.github.io/ncsdk/ncapi/ncapi2/c_api/ncFifoDataType_t.html
+type FifoDataType int
+
+const (
+	// FifoFP16 data is in half precision (16 bit) floating point format (FP16).
+	FifoFP16 FifoDataType = 0
+	// FifoFP32 data is in full precision (32 bit) floating point format (FP32)
+	FifoFP32 = 1
+)
+
+// Fifo is NCSDK FIFO queue
+type Fifo struct {
+	handle unsafe.Pointer
+	d      *Device
+}
+
+// NewFifo creates new FIFO queue with given name and returns it
+// It returns error if it fails to create new queue
+//
+// For more information:
+// https://movidius.github.io/ncsdk/ncapi/ncapi2/c_api/ncFifoCreate.html
+func NewFifo(name string, t FifoType) (*Fifo, error) {
+	var handle unsafe.Pointer
+
+	_name := C.CString(name)
+	defer C.free(unsafe.Pointer(_name))
+
+	c := C.ncs_FifoCreate(_name, C.ncFifoType(t), &handle)
+
+	if StatusCode(c) == StatusOK {
+		return &Fifo{handle: handle}, nil
+	}
+
+	return nil, fmt.Errorf("Failed to create new FIFO: %s", StatusCode(c))
+}
+
+// Destroy destroys NCS FIFO handle and frees associated resources.
+// This function must be called for every FIFO handle that was initialized with NewFifo()
+//
+// For more information:
+// https://movidius.github.io/ncsdk/ncapi/ncapi2/c_api/ncFifoDestroy.html
+func (f *Fifo) Destroy() error {
+	c := C.ncs_FifoDestroy(&f.handle)
+
+	if StatusCode(c) == StatusOK {
+		return nil
+	}
+
+	return fmt.Errorf("Failed to destroy FIFO: %s", StatusCode(c))
+}

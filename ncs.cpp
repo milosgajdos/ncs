@@ -30,3 +30,13 @@ int ncs_GraphDestroy(void** graphHandle) {
         ncStatus_t s = ncGraphDestroy((struct ncGraphHandle_t**) graphHandle);
         return int(s);
 }
+
+int ncs_FifoCreate(const char* name, ncFifoType_t type, void** fifoHandle) {
+        ncStatus_t s = ncFifoCreate(name, type, (struct ncFifoHandle_t**) fifoHandle);
+        return int(s);
+}
+
+int ncs_FifoDestroy(void** fifoHandle) {
+        ncStatus_t s = ncFifoDestroy((struct ncFifoHandle_t**) fifoHandle);
+        return int(s);
+}
