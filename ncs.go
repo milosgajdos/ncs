@@ -118,11 +118,11 @@ func NewDevice(index int) (*Device, error) {
 
 	c := C.ncs_DeviceCreate(C.int(index), &handle)
 
-	if StatusCode(c) == StatusOK {
-		return &Device{handle: handle}, nil
+	if StatusCode(c) != StatusOK {
+		return nil, fmt.Errorf("Failed to create new device: %s", StatusCode(c))
 	}
 
-	return nil, fmt.Errorf("Failed to create new device: %s", StatusCode(c))
+	return &Device{handle: handle}, nil
 }
 
 // Open initializes NCS device and opens device communication channel
@@ -133,11 +133,11 @@ func NewDevice(index int) (*Device, error) {
 func (d *Device) Open() error {
 	c := C.ncs_DeviceOpen(d.handle)
 
-	if StatusCode(c) == StatusOK {
-		return nil
+	if StatusCode(c) != StatusOK {
+		return fmt.Errorf("Failed to open device: %s", StatusCode(c))
 	}
 
-	return fmt.Errorf("Failed to open device: %s", StatusCode(c))
+	return nil
 }
 
 // Close closes the communication channel with NCS device.
@@ -148,11 +148,11 @@ func (d *Device) Open() error {
 func (d *Device) Close() error {
 	c := C.ncs_DeviceClose(d.handle)
 
-	if StatusCode(c) == StatusOK {
-		return nil
+	if StatusCode(c) != StatusOK {
+		return fmt.Errorf("Failed to close device: %s", StatusCode(c))
 	}
 
-	return fmt.Errorf("Failed to close device: %s", StatusCode(c))
+	return nil
 }
 
 // Destroy destroys NCS device handle and frees associated resources.
@@ -163,17 +163,20 @@ func (d *Device) Close() error {
 func (d *Device) Destroy() error {
 	c := C.ncs_DeviceDestroy(&d.handle)
 
-	if StatusCode(c) == StatusOK {
-		return nil
+	if StatusCode(c) != StatusOK {
+		return fmt.Errorf("Failed to destroy device: %s", StatusCode(c))
 	}
 
-	return fmt.Errorf("Failed to destroy device: %s", StatusCode(c))
+	return nil
 }
 
 // Graph is NCSDK neural network graph
 type Graph struct {
-	handle unsafe.Pointer
-	d      *Device
+	name    string
+	handle  unsafe.Pointer
+	device  *Device
+	inFifo  *Fifo
+	outFifo *Fifo
 }
 
 // NewGraph creates new Graph with given name and returns it
@@ -189,11 +192,65 @@ func NewGraph(name string) (*Graph, error) {
 
 	c := C.ncs_GraphCreate(_name, &handle)
 
-	if StatusCode(c) == StatusOK {
-		return &Graph{handle: handle}, nil
+	if StatusCode(c) != StatusOK {
+		return nil, fmt.Errorf("Failed to create new graph: %s", StatusCode(c))
 	}
 
-	return nil, fmt.Errorf("Failed to create new graph: %s", StatusCode(c))
+	return &Graph{name: name, handle: handle}, nil
+}
+
+// Allocate allocates a graph on NCS device. This function sends graphData to NCS device. It does not allocate input or output FIFO queues. You have to either allocate them separately or use either AllocateWithFifos() or AllocateWithFifosEx() functions whcih conveniently create and allocate the FIFO queues.
+// It returns error if it fails to allocate the graph on the device
+//
+// For more information:
+// https://movidius.github.io/ncsdk/ncapi/ncapi2/c_api/ncGraphAllocate.html
+func (g *Graph) Allocate(d *Device, graphData []byte) error {
+	c := C.ncs_GraphAllocate(d.handle, g.handle, unsafe.Pointer(&graphData[0]), C.uint(len(graphData)))
+
+	if StatusCode(c) != StatusOK {
+		return fmt.Errorf("Failed to allocate new graph: %s", StatusCode(c))
+	}
+
+	g.device = d
+
+	return nil
+}
+
+// AllocateWithFifosDefault allocates a graph and creates and allocates FIFO queues with default parameters for inference. Both FIFOs have FifoDataType set to FifoFP32. Inbound FIFO queue is initialized with FifoHostWO type and outbound FIFO queue with FifoHostRO type. It returns Queue or error if it fails to allocate the graph.
+//
+// For more information:
+// https://movidius.github.io/ncsdk/ncapi/ncapi2/c_api/ncGraphAllocateWithFifos.html
+func (g *Graph) AllocateWithFifosDefault(d *Device, graphData []byte) (*Queue, error) {
+	return g.AllocateWithFifosOpts(d, graphData, &FifoOpts{FifoHostWO, FifoFP32, 2}, &FifoOpts{FifoHostRO, FifoFP32, 2})
+}
+
+// AllocateWithFifosOpts allocates a graph and creates and allocates FIFO queues for inference. This function is similar to AllocateWithFifosDefault, but rather than initializing FIFOs with default values it accepts parameters that allow to specify FIFO queue parameters
+//
+// For more information:
+// https://movidius.github.io/ncsdk/ncapi/ncapi2/c_api/ncGraphAllocateWithFifosEx.html
+func (g *Graph) AllocateWithFifosOpts(d *Device, graphData []byte, inOpts *FifoOpts, outOpts *FifoOpts) (*Queue, error) {
+	var inHandle, outHandle unsafe.Pointer
+
+	c := C.ncs_GraphAllocateWithFifosEx(d.handle,
+		g.handle, unsafe.Pointer(&graphData[0]), C.uint(len(graphData)),
+		&inHandle, C.ncFifoType(inOpts.Type), C.int(inOpts.NumElem), C.ncFifoDataType(inOpts.DataType),
+		&outHandle, C.ncFifoType(outOpts.Type), C.int(outOpts.NumElem), C.ncFifoDataType(outOpts.DataType))
+
+	if StatusCode(c) != StatusOK {
+		return nil, fmt.Errorf("Failed to allocate graph with FIFOs: %s", StatusCode(c))
+	}
+
+	inFifo := &Fifo{handle: inHandle, device: d}
+	outFifo := &Fifo{handle: outHandle, device: d}
+
+	g.device = d
+	g.inFifo = inFifo
+	g.outFifo = outFifo
+
+	return &Queue{
+		In:  g.inFifo,
+		Out: g.outFifo,
+	}, nil
 }
 
 // Destroy destroys NCS graph handle and frees associated resources.
@@ -204,11 +261,11 @@ func NewGraph(name string) (*Graph, error) {
 func (g *Graph) Destroy() error {
 	c := C.ncs_GraphDestroy(&g.handle)
 
-	if StatusCode(c) == StatusOK {
-		return nil
+	if StatusCode(c) != StatusOK {
+		return fmt.Errorf("Failed to destroy graph: %s", StatusCode(c))
 	}
 
-	return fmt.Errorf("Failed to destroy graph: %s", StatusCode(c))
+	return nil
 }
 
 // FifoType defines FIFO access types
@@ -224,6 +281,14 @@ const (
 	FifoHostWO = 1
 )
 
+// Queue is a queue used for NCS inference
+type Queue struct {
+	// In is an inbound queue
+	In *Fifo
+	// Out is an outbound queue
+	Out *Fifo
+}
+
 // FifoDataType defines possible data types for FIFOs
 //
 // For more information:
@@ -237,10 +302,22 @@ const (
 	FifoFP32 = 1
 )
 
+// FifoOpts specifies FIFO configuration options
+// FIXME: This will most likely change soon
+type FifoOpts struct {
+	// Type is FIFO type
+	Type FifoType
+	// DataType is FIFO data type
+	DataType FifoDataType
+	// NumElem is a max number of elements that the FIFO will be able to contain
+	NumElem int
+}
+
 // Fifo is NCSDK FIFO queue
 type Fifo struct {
+	name   string
 	handle unsafe.Pointer
-	d      *Device
+	device *Device
 }
 
 // NewFifo creates new FIFO queue with given name and returns it
@@ -256,11 +333,11 @@ func NewFifo(name string, t FifoType) (*Fifo, error) {
 
 	c := C.ncs_FifoCreate(_name, C.ncFifoType(t), &handle)
 
-	if StatusCode(c) == StatusOK {
-		return &Fifo{handle: handle}, nil
+	if StatusCode(c) != StatusOK {
+		return nil, fmt.Errorf("Failed to create new FIFO: %s", StatusCode(c))
 	}
 
-	return nil, fmt.Errorf("Failed to create new FIFO: %s", StatusCode(c))
+	return &Fifo{name: name, handle: handle}, nil
 }
 
 // Destroy destroys NCS FIFO handle and frees associated resources.
@@ -271,9 +348,9 @@ func NewFifo(name string, t FifoType) (*Fifo, error) {
 func (f *Fifo) Destroy() error {
 	c := C.ncs_FifoDestroy(&f.handle)
 
-	if StatusCode(c) == StatusOK {
-		return nil
+	if StatusCode(c) != StatusOK {
+		return fmt.Errorf("Failed to destroy FIFO: %s", StatusCode(c))
 	}
 
-	return fmt.Errorf("Failed to destroy FIFO: %s", StatusCode(c))
+	return nil
 }

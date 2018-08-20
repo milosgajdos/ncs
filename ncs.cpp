@@ -26,6 +26,30 @@ int ncs_GraphCreate(const char* name, void** graphHandle) {
         return int(s);
 }
 
+int ncs_GraphAllocate(void* deviceHandle, void* graphHandle, const void *graphBuffer, unsigned int graphBufferLength) {
+        ncStatus_t s = ncGraphAllocate((struct ncDeviceHandle_t*) deviceHandle, (struct ncGraphHandle_t*) graphHandle,
+                        graphBuffer, graphBufferLength);
+        return int(s);
+}
+
+int ncs_GraphAllocateWithFifos(void* deviceHandle, void* graphHandle, const void *graphBuffer, unsigned int graphBufferLength, void** inFifoHandle, void** outFifoHandle) {
+        int s = ncs_GraphAllocateWithFifosEx(deviceHandle,
+                        graphHandle, graphBuffer, graphBufferLength,
+                        inFifoHandle, NC_FIFO_HOST_WO, 2, NC_FIFO_FP32,
+                        outFifoHandle, NC_FIFO_HOST_RO, 2, NC_FIFO_FP32);
+
+        return int(s);
+}
+
+
+int ncs_GraphAllocateWithFifosEx(void* deviceHandle, void* graphHandle, const void *graphBuffer, unsigned int graphBufferLength, void** inFifoHandle, ncFifoType_t inFifoType, int inNumElem, ncFifoDataType_t inDataType, void** outFifoHandle,  ncFifoType_t outFifoType, int outNumElem, ncFifoDataType_t outDataType) {
+        ncStatus_t s = ncGraphAllocateWithFifosEx((struct ncDeviceHandle_t*) deviceHandle,
+                        (struct ncGraphHandle_t*) graphHandle, graphBuffer, graphBufferLength,
+                        (struct ncFifoHandle_t**) inFifoHandle, inFifoType, inNumElem, inDataType,
+                        (struct ncFifoHandle_t**) outFifoHandle, outFifoType, outNumElem, outDataType);
+        return int(s);
+}
+
 int ncs_GraphDestroy(void** graphHandle) {
         ncStatus_t s = ncGraphDestroy((struct ncGraphHandle_t**) graphHandle);
         return int(s);
