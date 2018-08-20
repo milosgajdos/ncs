@@ -268,6 +268,28 @@ func (g *Graph) Destroy() error {
 	return nil
 }
 
+// TensorDesc describes graph inputs and outputs
+type TensorDesc struct {
+	// BatchSize contains number of elements
+	BatchSize uint
+	// Channels contains number of channels (when dealing with digital images)
+	Channels uint
+	// Width is data width (i.e. number of matrix columns)
+	Width uint
+	// Height is data height (i.e. number of matrix rows)
+	Height uint
+	// Size is total data size in tensor
+	Size uint
+	// CStride is channel stride (Stride in the channels' dimension)
+	CStride uint
+	// WStride is width stride (Stride in the horizontal dimension)
+	WStride uint
+	// HStride is height stride (Stride in the vertical dimension)
+	HStride uint
+	// DataType is data type of the tensor
+	DataType FifoDataType
+}
+
 // FifoType defines FIFO access types
 //
 // For more information:
@@ -281,7 +303,7 @@ const (
 	FifoHostWO = 1
 )
 
-// Queue is a queue used for NCS inference
+// Queue is a FIFO queue used for NCS inference
 type Queue struct {
 	// In is an inbound queue
 	In *Fifo
@@ -338,6 +360,74 @@ func NewFifo(name string, t FifoType) (*Fifo, error) {
 	}
 
 	return &Fifo{name: name, handle: handle}, nil
+}
+
+// Allocate allocates memory for a FIFO for the specified device based on the number of elements the FIFO will hold and tensorDesc, which describes the expected shape of the FIFO’s elements
+// It returns error when it fails to allocate FIFO
+//
+// More information:
+// https://movidius.github.io/ncsdk/ncapi/ncapi2/c_api/ncFifoAllocate.html
+func (f *Fifo) Allocate(d *Device, td *TensorDesc, numElem uint) error {
+	_td := C.struct_ncTensorDescriptor_t{
+		n:         C.uint(td.BatchSize),
+		c:         C.uint(td.Channels),
+		w:         C.uint(td.Width),
+		h:         C.uint(td.Height),
+		totalSize: C.uint(td.Size),
+		cStride:   C.uint(td.CStride),
+		wStride:   C.uint(td.WStride),
+		hStride:   C.uint(td.HStride),
+		dataType:  C.ncFifoDataType(td.DataType),
+	}
+
+	c := C.ncs_FifoAllocate(f.handle, d.handle, &_td, C.uint(numElem))
+
+	if StatusCode(c) != StatusOK {
+		return fmt.Errorf("Failed to allocate FIFO: %s", StatusCode(c))
+	}
+
+	return nil
+}
+
+// WriteElem writes an element to a FIFO, usually an input tensor for inference along with some metadata
+// If it fails to write the element it returns error
+//
+// For more information:
+// https://movidius.github.io/ncsdk/ncapi/ncapi2/c_api/ncFifoWriteElem.html
+func (f *Fifo) WriteElem(tensorData []byte, userData interface{}) error {
+	tensorDataLen := C.uint(len(tensorData))
+	c := C.ncs_FifoWriteElem(f.handle, unsafe.Pointer(&tensorData[0]), &tensorDataLen, unsafe.Pointer(&userData))
+
+	if StatusCode(c) != StatusOK {
+		return fmt.Errorf("Failed to write FIFO element: %s", StatusCode(c))
+	}
+
+	return nil
+}
+
+// ReadElem reads an element from a FIFO, usually the result of an inference, along with the associated user-defined data
+// If it fails to read the element it returns error
+//
+// For more information:
+// https://movidius.github.io/ncsdk/ncapi/ncapi2/c_api/ncFifoReadElem.html
+func (f *Fifo) ReadElem() error {
+	// TODO: implement ReadElem
+	c := StatusUnsupportedFeature
+
+	if StatusCode(c) != StatusOK {
+		return fmt.Errorf("Failed to read FIFO element: %s", StatusCode(c))
+	}
+
+	return nil
+}
+
+// RemoveElem removes an element from a FIFO
+// If it fails to remove the element it returns error
+//
+// For more information:
+// https://movidius.github.io/ncsdk/ncapi/ncapi2/c_api/ncFifoRemoveElem.html
+func (f *Fifo) RemoveElem() error {
+	return fmt.Errorf("%s", StatusUnsupportedFeature)
 }
 
 // Destroy destroys NCS FIFO handle and frees associated resources.
