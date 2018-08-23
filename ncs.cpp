@@ -65,6 +65,10 @@ int ncs_FifoAllocate(void* fifoHandle, void* deviceHandle, struct ncTensorDescri
                         (struct ncTensorDescriptor_t*) tensorDesc, numElem);
         return int(s);
 }
+int ncs_FifoGetOption(void* fifoHandle, int option, OptionsData* optionsData) {
+        ncStatus_t s = ncFifoGetOption((struct ncFifoHandle_t*) fifoHandle, option, &(optionsData->data), &(optionsData->length));
+        return int(s);
+}
 
 int ncs_FifoWriteElem(void* fifoHandle, const void *inputTensor, unsigned int* inputTensorLength, void* userParam) {
         ncStatus_t s = ncFifoWriteElem((struct ncFifoHandle_t*) fifoHandle, inputTensor, inputTensorLength, userParam);

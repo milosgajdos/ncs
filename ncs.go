@@ -199,7 +199,7 @@ func NewGraph(name string) (*Graph, error) {
 	return &Graph{name: name, handle: handle}, nil
 }
 
-// Allocate allocates a graph on NCS device. This function sends graphData to NCS device. It does not allocate input or output FIFO queues. You have to either allocate them separately or use either AllocateWithFifos() or AllocateWithFifosEx() functions whcih conveniently create and allocate the FIFO queues.
+// Allocate allocates a graph on NCS device. This function sends graphData to NCS device. It does not allocate input or output FIFO queues. You have to either allocate them separately or use either AllocateWithFifosDefault() or AllocateWithFifosOpts() functions whcih conveniently create and allocate the FIFO queues.
 // It returns error if it fails to allocate the graph on the device
 //
 // For more information:
@@ -216,11 +216,11 @@ func (g *Graph) Allocate(d *Device, graphData []byte) error {
 	return nil
 }
 
-// AllocateWithFifosDefault allocates a graph and creates and allocates FIFO queues with default parameters for inference. Both FIFOs have FifoDataType set to FifoFP32. Inbound FIFO queue is initialized with FifoHostWO type and outbound FIFO queue with FifoHostRO type. It returns Queue or error if it fails to allocate the graph.
+// AllocateWithFifosDefault allocates a graph and creates and allocates FIFO queues with default parameters for inference. Both FIFOs have FifoDataType set to FifoFP32. Inbound FIFO queue is initialized with FifoHostWO type and outbound FIFO queue with FifoHostRO type. It returns FifoQueue or error if it fails to allocate the graph.
 //
 // For more information:
 // https://movidius.github.io/ncsdk/ncapi/ncapi2/c_api/ncGraphAllocateWithFifos.html
-func (g *Graph) AllocateWithFifosDefault(d *Device, graphData []byte) (*Queue, error) {
+func (g *Graph) AllocateWithFifosDefault(d *Device, graphData []byte) (*FifoQueue, error) {
 	return g.AllocateWithFifosOpts(d, graphData, &FifoOpts{FifoHostWO, FifoFP32, 2}, &FifoOpts{FifoHostRO, FifoFP32, 2})
 }
 
@@ -228,7 +228,7 @@ func (g *Graph) AllocateWithFifosDefault(d *Device, graphData []byte) (*Queue, e
 //
 // For more information:
 // https://movidius.github.io/ncsdk/ncapi/ncapi2/c_api/ncGraphAllocateWithFifosEx.html
-func (g *Graph) AllocateWithFifosOpts(d *Device, graphData []byte, inOpts *FifoOpts, outOpts *FifoOpts) (*Queue, error) {
+func (g *Graph) AllocateWithFifosOpts(d *Device, graphData []byte, inOpts *FifoOpts, outOpts *FifoOpts) (*FifoQueue, error) {
 	var inHandle, outHandle unsafe.Pointer
 
 	c := C.ncs_GraphAllocateWithFifosEx(d.handle,
@@ -247,7 +247,7 @@ func (g *Graph) AllocateWithFifosOpts(d *Device, graphData []byte, inOpts *FifoO
 	g.inFifo = inFifo
 	g.outFifo = outFifo
 
-	return &Queue{
+	return &FifoQueue{
 		In:  g.inFifo,
 		Out: g.outFifo,
 	}, nil
@@ -266,6 +266,14 @@ func (g *Graph) Destroy() error {
 	}
 
 	return nil
+}
+
+// Tensor contains graph tensor data and metadata
+type Tensor struct {
+	// Data contains raw tensor data
+	Data []byte
+	// MetaData contains tensor metadata
+	MetaData interface{}
 }
 
 // TensorDesc describes graph inputs and outputs
@@ -290,6 +298,14 @@ type TensorDesc struct {
 	DataType FifoDataType
 }
 
+// FifoQueue is a FIFO queue used for NCS inference
+type FifoQueue struct {
+	// In is an inbound queue
+	In *Fifo
+	// Out is an outbound queue
+	Out *Fifo
+}
+
 // FifoType defines FIFO access types
 //
 // For more information:
@@ -302,14 +318,6 @@ const (
 	// FifoHostWO allows Write Only API acess and Read Only Graph access
 	FifoHostWO = 1
 )
-
-// Queue is a FIFO queue used for NCS inference
-type Queue struct {
-	// In is an inbound queue
-	In *Fifo
-	// Out is an outbound queue
-	Out *Fifo
-}
 
 // FifoDataType defines possible data types for FIFOs
 //
@@ -324,8 +332,50 @@ const (
 	FifoFP32 = 1
 )
 
+// FifoState is state of FIFO
+type FifoState int
+
+const (
+	// FifoCreated means FIFO has been created
+	FifoCreated FifoState = 0
+	// FifoAllocated means FIFO has been allocated
+	FifoAllocated
+)
+
+// FifoOption is FIFO option
+// The options starting with RW are both gettable and settable
+// The options starting with RO are only gettable
+// All settable  options except for NC_RW_FIFO_HOST_TENSOR_DESCRIPTOR must be set before FIFO is allocated
+type FifoOption int
+
+const (
+	// RW_FifoType configure the fifo type to either of FifoType options
+	RW_FifoType FifoOption = 0
+	// RW_FifoConsumerCount is number of consumers of elements before the element is removed
+	RW_FifoConsumerCount
+	// RW_FifoDataType configures fifo data type to either of FifoDataType options
+	RW_FifoDataType
+	// RW_FifoDontBlock configures to return StatusOutOfMemory instead of blocking
+	RW_FifoDontBlock
+	// RO_FifoCapacity allows to query number of maximum elements in the buffer
+	RO_FifoCapacity
+	// RO_FifoReadFillLevel allows to query number of tensors in the read buffer
+	RO_FifoReadFillLevel
+	// RO_FifoWriteFillLevel allows to query number of tensors in a write buffer
+	RO_FifoWriteFillLevel
+	// RO_FifoGraphTensorDescriptor allows to query the tensor descriptor of the FIFO
+	RO_FifoGraphTensorDescriptor
+	// RO_FifoState allows to query FifoState
+	RO_FifoState
+	// RO_FifoName allows to query FIFO name
+	RO_FifoName
+	// RO_FifoElemDataSize allows to query element data size in bytes
+	RO_FifoElemDataSize
+	// RW_FifoHostTensorDesc is tensor descriptor, defaults to none strided channel minor
+	RW_FifoHostTensorDesc
+)
+
 // FifoOpts specifies FIFO configuration options
-// FIXME: This will most likely change soon
 type FifoOpts struct {
 	// Type is FIFO type
 	Type FifoType
@@ -389,14 +439,33 @@ func (f *Fifo) Allocate(d *Device, td *TensorDesc, numElem uint) error {
 	return nil
 }
 
+// GetOptions queries FIFO options and returns it encoded in a byte slice
+// It returns error if it fails to retrieve the options
+//
+// For more information:
+// https://movidius.github.io/ncsdk/ncapi/ncapi2/c_api/ncFifoGetOption.html
+func (f *Fifo) GetOption(opt FifoOption) ([]byte, error) {
+	optsData := C.OptionsData{}
+
+	c := C.ncs_FifoGetOption(f.handle, C.int(opt), &optsData)
+
+	if StatusCode(c) != StatusOK {
+		return nil, fmt.Errorf("Failed to get FIFO options: %s", StatusCode(c))
+	}
+
+	data := C.GoBytes(unsafe.Pointer(optsData.data), C.int(optsData.length))
+
+	return data, nil
+}
+
 // WriteElem writes an element to a FIFO, usually an input tensor for inference along with some metadata
 // If it fails to write the element it returns error
 //
 // For more information:
 // https://movidius.github.io/ncsdk/ncapi/ncapi2/c_api/ncFifoWriteElem.html
-func (f *Fifo) WriteElem(tensorData []byte, userData interface{}) error {
+func (f *Fifo) WriteElem(tensorData []byte, metaData interface{}) error {
 	tensorDataLen := C.uint(len(tensorData))
-	c := C.ncs_FifoWriteElem(f.handle, unsafe.Pointer(&tensorData[0]), &tensorDataLen, unsafe.Pointer(&userData))
+	c := C.ncs_FifoWriteElem(f.handle, unsafe.Pointer(&tensorData[0]), &tensorDataLen, unsafe.Pointer(&metaData))
 
 	if StatusCode(c) != StatusOK {
 		return fmt.Errorf("Failed to write FIFO element: %s", StatusCode(c))
@@ -405,24 +474,25 @@ func (f *Fifo) WriteElem(tensorData []byte, userData interface{}) error {
 	return nil
 }
 
-// ReadElem reads an element from a FIFO, usually the result of an inference, along with the associated user-defined data
+// ReadElem reads an element from a FIFO, usually the result of an inference as a tensor, along with the associated user-defined data
 // If it fails to read the element it returns error
 //
 // For more information:
 // https://movidius.github.io/ncsdk/ncapi/ncapi2/c_api/ncFifoReadElem.html
-func (f *Fifo) ReadElem() error {
+func (f *Fifo) ReadElem() (*Tensor, error) {
 	// TODO: implement ReadElem
 	c := StatusUnsupportedFeature
 
 	if StatusCode(c) != StatusOK {
-		return fmt.Errorf("Failed to read FIFO element: %s", StatusCode(c))
+		return nil, fmt.Errorf("Failed to read FIFO element: %s", StatusCode(c))
 	}
 
-	return nil
+	return nil, nil
 }
 
 // RemoveElem removes an element from a FIFO
 // If it fails to remove the element it returns error
+// THIS FUNCTION IS NOT IMPLEMENTED YET
 //
 // For more information:
 // https://movidius.github.io/ncsdk/ncapi/ncapi2/c_api/ncFifoRemoveElem.html

@@ -11,6 +11,12 @@ extern "C" {
 typedef ncFifoType_t ncFifoType;
 typedef ncFifoDataType_t ncFifoDataType;
 
+typedef struct OptionsData{
+  void* data;
+  uint length;
+} OptionsData;
+
+
 // Device Functions
 int ncs_DeviceCreate(int idx, void **deviceHandle);
 int ncs_DeviceOpen(void* deviceHandle);
@@ -33,6 +39,8 @@ int ncs_GraphDestroy(void **graphHandle);
 // FIFO functions
 int ncs_FifoCreate(const char* name, ncFifoType_t type, void** fifoHandle);
 int ncs_FifoAllocate(void* fifoHandle, void* deviceHandle, struct ncTensorDescriptor_t* tensorDesc, unsigned int numElem);
+
+int ncs_FifoGetOption(void* fifoHandle, int option, OptionsData* optionsData);
 int ncs_FifoWriteElem(void* fifoHandle, const void *inputTensor, unsigned int* inputTensorLength, void* userParam);
 int ncs_FifoReadElem(void* fifoHandle, void *outputData, unsigned int* outputDataLen, void **userParam);
 int ncs_FifoDestroy(void** fifoHandle);
