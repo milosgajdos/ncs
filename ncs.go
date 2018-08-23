@@ -96,7 +96,7 @@ func (nc StatusCode) String() string {
 	case StatusMyriadError:
 		return "Movidius VPU failure"
 	case StatusInvalidDataLength:
-		return "Invalid data length when setting options"
+		return "Invalid data length when querying options"
 	case StatusInvalidHandle:
 		return "Invalid handle"
 	default:
@@ -345,7 +345,7 @@ const (
 // FifoOption is FIFO option
 // The options starting with RW are both gettable and settable
 // The options starting with RO are only gettable
-// All settable  options except for NC_RW_FIFO_HOST_TENSOR_DESCRIPTOR must be set before FIFO is allocated
+// All settable options except for NC_RW_FIFO_HOST_TENSOR_DESCRIPTOR must be set before FIFO is allocated
 type FifoOption int
 
 const (
@@ -449,13 +449,19 @@ func (f *Fifo) GetOption(opt FifoOption) ([]byte, error) {
 
 	c := C.ncs_FifoGetOption(f.handle, C.int(opt), &optsData)
 
-	if StatusCode(c) != StatusOK {
-		return nil, fmt.Errorf("Failed to get FIFO options: %s", StatusCode(c))
+	if StatusCode(c) == StatusInvalidDataLength {
+		// allocate the data with correct size and try again
+		optsData.data = C.malloc(C.sizeof_char * C.ulong(optsData.length))
+		defer C.free(unsafe.Pointer(optsData.data))
+
+		c = C.ncs_FifoGetOption(f.handle, C.int(opt), &optsData)
+
+		if StatusCode(c) != StatusOK {
+			return nil, fmt.Errorf("Failed to get FIFO options: %s", StatusCode(c))
+		}
 	}
 
-	data := C.GoBytes(unsafe.Pointer(optsData.data), C.int(optsData.length))
-
-	return data, nil
+	return C.GoBytes(unsafe.Pointer(optsData.data), C.int(optsData.length)), nil
 }
 
 // WriteElem writes an element to a FIFO, usually an input tensor for inference along with some metadata

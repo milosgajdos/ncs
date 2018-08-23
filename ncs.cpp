@@ -66,7 +66,7 @@ int ncs_FifoAllocate(void* fifoHandle, void* deviceHandle, struct ncTensorDescri
         return int(s);
 }
 int ncs_FifoGetOption(void* fifoHandle, int option, OptionsData* optionsData) {
-        ncStatus_t s = ncFifoGetOption((struct ncFifoHandle_t*) fifoHandle, option, &(optionsData->data), &(optionsData->length));
+        ncStatus_t s = ncFifoGetOption((struct ncFifoHandle_t*) fifoHandle, option, optionsData->data, &(optionsData->length));
         return int(s);
 }
 
