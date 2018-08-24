@@ -50,6 +50,21 @@ int ncs_GraphAllocateWithFifosEx(void* deviceHandle, void* graphHandle, const vo
         return int(s);
 }
 
+int ncs_GraphQueueInference(void* graphHandle, void** inFifoHandle, unsigned int inFifoCount, void** outFifoHandle, unsigned int outFifoCount) {
+        ncStatus_t s = ncGraphQueueInference((struct ncGraphHandle_t*) graphHandle,
+                        (struct ncFifoHandle_t**) inFifoHandle, inFifoCount,
+                        (struct ncFifoHandle_t**) outFifoHandle, outFifoCount);
+        return int(s);
+}
+
+int ncs_GraphQueueInferenceWithFifoElem(void* graphHandle, void* inFifoHandle, void* outFifoHandle, const void* inputTensor, unsigned int* inputTensorLength, void* userParam) {
+        ncStatus_t s = ncGraphQueueInferenceWithFifoElem((struct ncGraphHandle_t*) graphHandle,
+                        (struct ncFifoHandle_t*) inFifoHandle,
+                        (struct ncFifoHandle_t*) outFifoHandle,
+                        inputTensor, inputTensorLength, userParam);
+        return int(s);
+}
+
 int ncs_GraphDestroy(void** graphHandle) {
         ncStatus_t s = ncGraphDestroy((struct ncGraphHandle_t**) graphHandle);
         return int(s);

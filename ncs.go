@@ -55,39 +55,39 @@ const (
 func (nc StatusCode) String() string {
 	switch nc {
 	case StatusOK:
-		return "OK"
+		return "DEVICE_OK"
 	case StatusBusy:
-		return "Device busy"
+		return "DEVICE_BUSY"
 	case StatusError:
-		return "Unexpected error"
+		return "DEVICE_UNEXPECTED_ERROR"
 	case StatusOutOfMemory:
-		return "Host out of memory"
+		return "DEVICE_HOST_OUT_OF_MEMORY"
 	case StatusDeviceNotFound:
-		return "Device not found"
+		return "DEVICE_NOT_FOUND"
 	case StatusInvalidParameters:
-		return "Invalid parameters"
+		return "DEVICE_INVALID_PARAMETERS"
 	case StatusTimeout:
-		return "Device timeout"
+		return "DEVICE_TIMEOUT"
 	case StatusCmdNotFound:
-		return "Device bootloader not found"
+		return "DEVICE_BOOTLOADER_NOT_FOUND"
 	case StatusNotAllocated:
-		return "Unallocated resource"
+		return "DEVICE_UNALLOCATED_RESOURCE"
 	case StatusUnauthorized:
-		return "Unauthorized operation"
+		return "DEVICE_UNAUTHORIZED_OPERATION"
 	case StatusUnsupportedGraphFile:
-		return "Unsupported graph file"
+		return "DEVICE_UNSUPPORTED_GRAPH_FORMAT"
 	case StatusUnsupportedConfigFile:
-		return "Unsupported configuration"
+		return "DEVICE_UNSUPPORTED_CONFIGURATION"
 	case StatusUnsupportedFeature:
-		return "Unsupported feature"
+		return "DEVICE_UNSUPPORTED_FEATURE"
 	case StatusMyriadError:
-		return "Movidius VPU failure"
+		return "DEVICE_MOVIDIUS_VPU_ERROR"
 	case StatusInvalidDataLength:
-		return "Invalid data length when querying options"
+		return "DEVICE_INVALID_OPTION_PARAMETERS_LENGTH"
 	case StatusInvalidHandle:
-		return "Invalid handle"
+		return "DEVICE_INVALID_HANDLE"
 	default:
-		return "Unknown"
+		return "DEVICE_UNKNOWN_STATE"
 	}
 }
 
@@ -155,6 +155,100 @@ func (d *Device) Destroy() error {
 	}
 
 	return nil
+}
+
+// GraphState defines states of a network graph
+type GraphState int
+
+const (
+	// GraphCreated means the graph has been created, but it may not be initialized
+	GraphCreated GraphState = iota
+	// GraphAllocated means the graph has been initialized, and the graph has been allocated for a device
+	GraphAllocated
+	// GraphWaitingForInput means the graph is waiting for input.
+	GraphWaitingForInput
+	// GraphRunning means the graph is currently running an inference
+	GraphRunning
+)
+
+// String implements fmt.Stringer interface for GraphState
+func (gs GraphState) String() string {
+	switch gs {
+	case GraphCreated:
+		return "GRAPH_CREATED"
+	case GraphAllocated:
+		return "GRAPH_ALLOCATED"
+	case GraphWaitingForInput:
+		return "GRAPH_WAITING_FOR_INPUT"
+	case GraphRunning:
+		return "GRAPH_RUNNING"
+	default:
+		return "GRAPH_UNKNOWN_STATE"
+	}
+}
+
+// GraphOption defines graph options
+// The options starting with RW are both gettable and settable
+// The options starting with RO are only gettable
+type GraphOption int
+
+const (
+	// ROGraphState is current state of the graph
+	ROGraphState GraphOption = (1000 + iota)
+	// ROGraphInferenceTime times taken per graph layer for the last inference in milliseconds
+	ROGraphInferenceTime
+	// ROGraphInputCount is number of inputs expected by the graph
+	ROGraphInputCount
+	// ROGraphOutputCount is he number of outputs expected by the graph.
+	ROGraphOutputCount
+	// ROGraphInputTensorDesc is an array of TensorDesc's, which describe the graph inputs in order
+	ROGraphInputTensorDesc
+	// ROGraphOutputTensorDesc is array of TensorDesc's, which describe the graph outputs in order
+	ROGraphOutputTensorDesc
+	// ROGraphDebugInfo provides more details when the result of a function call was StatusMyriadError
+	ROGraphDebugInfo
+	// ROGraphName is the name of the graph
+	ROGraphName
+	// ROGraphOptionClassLimit returns the highest option class supported
+	ROGraphOptionClassLimit
+	// ROGraphVersion is graph version
+	ROGraphVersion
+	// RWGraphExecutorsCount is not implemented yet
+	RWGraphExecutorsCount
+	// ROGraphInferenceTimeSize size of array for ROGraphInferenceTime option
+	ROGraphInferenceTimeSize
+)
+
+// String implements fmt.Stringer interface for GraphOption
+func (g GraphOption) String() string {
+	switch g {
+	case ROGraphState:
+		return "GRAPH_STATE"
+	case ROGraphInferenceTime:
+		return "GRAPH_INFERENCE_TIME"
+	case ROGraphInputCount:
+		return "GRAPH_INPUT_COUNT"
+	case ROGraphOutputCount:
+		return "GRAPH_OUTPUT_COUNT"
+	case ROGraphInputTensorDesc:
+		return "GRAPH_INPUT_TENSOR_DESCRIPTION"
+	case ROGraphOutputTensorDesc:
+		return "GRAPH_OUTPUT_TENSOR_DESCRIPTION"
+	case ROGraphDebugInfo:
+		return "GRAPH_DEBUG_INFO"
+	case ROGraphName:
+		return "GRAPH_NAME"
+	case ROGraphOptionClassLimit:
+		return "GRAPH_OPTION_CLASS_LIMIT"
+	case ROGraphVersion:
+		return "GRAPH_VERSION"
+	case RWGraphExecutorsCount:
+		return "RW_GRAPH_EXECUTORS_LIMIT"
+	case ROGraphInferenceTimeSize:
+		return "GRAPH_INFERENCE_TIME_SIZE"
+	default:
+		return "GRAPH_UNKNOWN_OPTION"
+	}
 }
 
 // Graph is NCSDK neural network graph
@@ -238,6 +332,37 @@ func (g *Graph) AllocateWithFifosOpts(d *Device, graphData []byte, inOpts *FifoO
 		In:  g.inFifo,
 		Out: g.outFifo,
 	}, nil
+}
+
+// QueueInference queues data for inference to be processed by a graph with specified input and output FIFOs
+// If it fails to queue the data tensor it returns error
+//
+// For more information:
+// https://movidius.github.io/ncsdk/ncapi/ncapi2/c_api/ncGraphQueueInference.html
+func (g *Graph) QueueInference(f *FifoQueue) error {
+	c := C.ncs_GraphQueueInference(g.handle, &f.In.handle, C.uint(1), &f.Out.handle, C.uint(1))
+
+	if StatusCode(c) != StatusOK {
+		return fmt.Errorf("Failed to queue inference: %s", StatusCode(c))
+	}
+
+	return nil
+}
+
+// QueueInferenceWithFifoElem writes an element to a FIFO, usually an input tensor for inference, and queues an inference to be processed by a graph. This is a convenient way to write an input tensor and queue an inference in one call
+// If it fails to queue the data tensor it returns error
+// For more information:
+// https://movidius.github.io/ncsdk/ncapi/ncapi2/c_api/ncGraphQueueInferenceWithFifoElem.html
+func (g *Graph) QueueInferenceWithFifoElem(f *FifoQueue, data []byte, metaData interface{}) error {
+	dataLen := C.uint(len(data))
+
+	c := C.ncs_GraphQueueInferenceWithFifoElem(g.handle, f.In.handle, f.Out.handle, unsafe.Pointer(&data[0]), &dataLen, unsafe.Pointer(&metaData))
+
+	if StatusCode(c) != StatusOK {
+		return fmt.Errorf("Failed to queue inference: %s", StatusCode(c))
+	}
+
+	return nil
 }
 
 // Destroy destroys NCS graph handle and frees associated resources.
@@ -329,6 +454,18 @@ const (
 	FifoAllocated
 )
 
+// String implements fmt.Stringer interface for FifoState
+func (fs FifoState) String() string {
+	switch fs {
+	case FifoCreated:
+		return "FIFO_CREATED"
+	case FifoAllocated:
+		return "FIFO_ALLOCATED"
+	default:
+		return "FIFO_UNKNOWN_STATE"
+	}
+}
+
 // FifoOption is FIFO option which can be used to query and set different FIFO properties
 // The options starting with RW are both gettable and settable
 // The options starting with RO are only gettable
@@ -368,29 +505,29 @@ func (fo FifoOption) String() string {
 	case RWFifoType:
 		return "RW FIFO type"
 	case RWFifoConsumerCount:
-		return "RW_FIFO_Consumer_Count"
+		return "RW_FIFO_CONSUMER_COUNT"
 	case RWFifoDataType:
-		return "RW_FIFO_Data_Type"
+		return "RW_FIFO_DATA_TYPE"
 	case RWFifoNoBlock:
-		return "RW_FIFO_No_Block"
+		return "RW_FIFO_NO_BLOCK"
 	case ROFifoCapacity:
-		return "RW_FIFO_Capacity"
+		return "RW_FIFO_CAPACITY"
 	case ROFifoReadFillLevel:
-		return "RO_FIFO_Read_Fill_Level"
+		return "RO_FIFO_READ_FILL_LEVEL"
 	case ROFifoWriteFillLevel:
-		return "RO_FIFO_Write_Fill_Level"
+		return "RO_FIFO_WRITE_FILL_LEVEL"
 	case ROFifoGraphTensorDesc:
-		return "RO_FIFO_Graph_Tensor_Descriptor"
+		return "RO_FIFO_GRAPH_TENSOR_DESCRIPTOR"
 	case ROFifoState:
-		return "RO_FIFO_State"
+		return "RO_FIFO_STATE"
 	case ROFifoName:
-		return "RO_FIFO_Name"
+		return "RO_FIFO_NAME"
 	case ROFifoElemDataSize:
-		return "RO_FIFO_Elem_Data_Size"
+		return "RO_FIFO_ELEM_DATA_SIZE"
 	case RWFifoHostTensorDesc:
-		return "RW_FIFO_Host_Tensor_Descriptor"
+		return "RW_FIFO_HOST_TENSOR_DESCRIPTOR"
 	default:
-		return "Unknown"
+		return "FIFO_UNKNOWN_OPTION"
 	}
 }
 
@@ -441,8 +578,6 @@ func (fo FifoOption) Decode(data []byte) (interface{}, error) {
 			DataType:  FifoDataType(val.DataType),
 		}, nil
 	}
-
-	return nil, nil
 }
 
 // FifoOpts specifies FIFO configuration options
@@ -567,6 +702,7 @@ func (f *Fifo) GetOptionWithSize(opt FifoOption, size uint) ([]byte, error) {
 // https://movidius.github.io/ncsdk/ncapi/ncapi2/c_api/ncFifoWriteElem.html
 func (f *Fifo) WriteElem(data []byte, metaData interface{}) error {
 	dataLen := C.uint(len(data))
+
 	c := C.ncs_FifoWriteElem(f.handle, unsafe.Pointer(&data[0]), &dataLen, unsafe.Pointer(&metaData))
 
 	if StatusCode(c) != StatusOK {
