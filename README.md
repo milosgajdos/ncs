@@ -1,7 +1,11 @@
 # ncs
+
+[![GoDoc](https://github.com/milosgajdos83/ncs?status.svg)](https://github.com/milosgajdos83/ncs)
+[![License](https://img.shields.io/:license-apache-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+
 Neural Compute Stick V2 API Go binding
 
-So far it only contains Device API implementation.
+Current NCSDK API coverage should give you all the tools to use Movidius NCS to perform inference.
 
 **WARNING, NCSDK API V2 IS BADLY BROKEN AT THE MOMENT**
 
