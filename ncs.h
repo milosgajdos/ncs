@@ -16,6 +16,11 @@ typedef struct OptionsData{
   uint length;
 } OptionsData;
 
+typedef struct ElemData{
+  void* data;
+  void** userParam;
+  uint length;
+} ElemData;
 
 // Device Functions
 int ncs_DeviceCreate(int idx, void **deviceHandle);

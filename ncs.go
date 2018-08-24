@@ -6,6 +6,8 @@ package ncs
 */
 import "C"
 import (
+	"bytes"
+	"encoding/binary"
 	"fmt"
 	"unsafe"
 )
@@ -16,52 +18,37 @@ type StatusCode int
 
 const (
 	// StatusOK means the API function call worked as expected
-	StatusOK StatusCode = 0
-
+	StatusOK StatusCode = -iota
 	// StatusBusy means device is busy, retry later.
-	StatusBusy = -1
-
+	StatusBusy
 	// StatusError means an unexpected error was encountered during the API function call.
-	StatusError = -2
-
+	StatusError
 	// StatusOutOfMemory means the host is out of memory.
-	StatusOutOfMemory = -3
-
+	StatusOutOfMemory
 	// StatusDeviceNotFound means no device has been found at the given index or name.
-	StatusDeviceNotFound = -4
-
+	StatusDeviceNotFound
 	// StatusInvalidParameters means at least one of the given parameters is wrong.
-	StatusInvalidParameters = -5
-
+	StatusInvalidParameters
 	// StatusTimeout means there was a timeout in the communication with the device.
-	StatusTimeout = -6
-
+	StatusTimeout
 	// StatusCmdNotFound means the file to boot the device was not found.
-	StatusCmdNotFound = -7
-
+	StatusCmdNotFound
 	// StatusNotAllocated means the graph or fifo has not been allocated.
-	StatusNotAllocated = -8
-
+	StatusNotAllocated
 	// StatusUnauthorized means an unauthorized operation has been attempted.
-	StatusUnauthorized = -9
-
+	StatusUnauthorized
 	// StatusUnsupportedGraphFile means the graph file version is not supported.
-	StatusUnsupportedGraphFile = -10
-
+	StatusUnsupportedGraphFile
 	// StatusUnsupportedConfigFile is reserved for future use.
-	StatusUnsupportedConfigFile = -11
-
+	StatusUnsupportedConfigFile
 	// StatusUnsupportedFeature means the operation used a feature unsupported by this firmware version.
-	StatusUnsupportedFeature = -12
-
+	StatusUnsupportedFeature
 	// StatusMyriadError when an error has been reported by device, use MVNC_DEBUG_INFO.
-	StatusMyriadError = -13
-
+	StatusMyriadError
 	// StatusInvalidDataLength means an invalid data length has been passed when getting or setting an option
-	StatusInvalidDataLength = -14
-
+	StatusInvalidDataLength
 	// StatusInvalidHandle means an invalid handle has been passed to a function
-	StatusInvalidHandle = -15
+	StatusInvalidHandle
 )
 
 // String method to satisfy fmt.Stringer interface
@@ -100,7 +87,7 @@ func (nc StatusCode) String() string {
 	case StatusInvalidHandle:
 		return "Invalid handle"
 	default:
-		return "Unknown status"
+		return "Unknown"
 	}
 }
 
@@ -268,14 +255,6 @@ func (g *Graph) Destroy() error {
 	return nil
 }
 
-// Tensor contains graph tensor data and metadata
-type Tensor struct {
-	// Data contains raw tensor data
-	Data []byte
-	// MetaData contains tensor metadata
-	MetaData interface{}
-}
-
 // TensorDesc describes graph inputs and outputs
 type TensorDesc struct {
 	// BatchSize contains number of elements
@@ -298,6 +277,14 @@ type TensorDesc struct {
 	DataType FifoDataType
 }
 
+// Tensor is graph tensor as returned from NCS
+type Tensor struct {
+	// Data contains raw tensor data
+	Data []byte
+	// MetaData contains tensor metadata
+	MetaData interface{}
+}
+
 // FifoQueue is a FIFO queue used for NCS inference
 type FifoQueue struct {
 	// In is an inbound queue
@@ -314,9 +301,9 @@ type FifoType int
 
 const (
 	// FifoHostRO allows Read Only API access and Read-Write Graph access
-	FifoHostRO FifoType = 0
+	FifoHostRO FifoType = iota
 	// FifoHostWO allows Write Only API acess and Read Only Graph access
-	FifoHostWO = 1
+	FifoHostWO
 )
 
 // FifoDataType defines possible data types for FIFOs
@@ -327,9 +314,9 @@ type FifoDataType int
 
 const (
 	// FifoFP16 data is in half precision (16 bit) floating point format (FP16).
-	FifoFP16 FifoDataType = 0
+	FifoFP16 FifoDataType = iota
 	// FifoFP32 data is in full precision (32 bit) floating point format (FP32)
-	FifoFP32 = 1
+	FifoFP32
 )
 
 // FifoState is state of FIFO
@@ -337,43 +324,126 @@ type FifoState int
 
 const (
 	// FifoCreated means FIFO has been created
-	FifoCreated FifoState = 0
+	FifoCreated FifoState = iota
 	// FifoAllocated means FIFO has been allocated
 	FifoAllocated
 )
 
-// FifoOption is FIFO option
+// FifoOption is FIFO option which can be used to query and set different FIFO properties
 // The options starting with RW are both gettable and settable
 // The options starting with RO are only gettable
-// All settable options except for NC_RW_FIFO_HOST_TENSOR_DESCRIPTOR must be set before FIFO is allocated
+// All settable options except for NC_RWFIFO_HOST_TENSOR_DESCRIPTOR must be set before FIFO is allocated
 type FifoOption int
 
 const (
-	// RW_FifoType configure the fifo type to either of FifoType options
-	RW_FifoType FifoOption = 0
-	// RW_FifoConsumerCount is number of consumers of elements before the element is removed
-	RW_FifoConsumerCount
-	// RW_FifoDataType configures fifo data type to either of FifoDataType options
-	RW_FifoDataType
-	// RW_FifoDontBlock configures to return StatusOutOfMemory instead of blocking
-	RW_FifoDontBlock
-	// RO_FifoCapacity allows to query number of maximum elements in the buffer
-	RO_FifoCapacity
-	// RO_FifoReadFillLevel allows to query number of tensors in the read buffer
-	RO_FifoReadFillLevel
-	// RO_FifoWriteFillLevel allows to query number of tensors in a write buffer
-	RO_FifoWriteFillLevel
-	// RO_FifoGraphTensorDescriptor allows to query the tensor descriptor of the FIFO
-	RO_FifoGraphTensorDescriptor
-	// RO_FifoState allows to query FifoState
-	RO_FifoState
-	// RO_FifoName allows to query FIFO name
-	RO_FifoName
-	// RO_FifoElemDataSize allows to query element data size in bytes
-	RO_FifoElemDataSize
-	// RW_FifoHostTensorDesc is tensor descriptor, defaults to none strided channel minor
-	RW_FifoHostTensorDesc
+	// RWFifoType configure the fifo type to either of FifoType options
+	RWFifoType FifoOption = iota
+	// RWFifoConsumerCount is number of consumers of elements before the element is removed
+	RWFifoConsumerCount
+	// RWFifoDataType configures fifo data type to either of FifoDataType options
+	RWFifoDataType
+	// RWFifoDontBlock configures to return StatusOutOfMemory instead of blocking
+	RWFifoNoBlock
+	// ROFifoCapacity allows to query number of maximum elements in the buffer
+	ROFifoCapacity
+	// ROFifoReadFillLevel allows to query number of tensors in the read buffer
+	ROFifoReadFillLevel
+	// ROFifoWriteFillLevel allows to query number of tensors in a write buffer
+	ROFifoWriteFillLevel
+	// ROFifoGraphTensorDescriptor allows to query the tensor descriptor of the FIFO
+	ROFifoGraphTensorDesc
+	// ROFifoState allows to query FifoState
+	ROFifoState
+	// ROFifoName allows to query FIFO name
+	ROFifoName
+	// ROFifoElemDataSize allows to query element data size in bytes
+	ROFifoElemDataSize
+	// RWFifoHostTensorDesc is tensor descriptor, defaults to none strided channel minor
+	RWFifoHostTensorDesc
 )
+
+// String implements fmt.Stringer interface
+func (fo FifoOption) String() string {
+	switch fo {
+	case RWFifoType:
+		return "RW FIFO type"
+	case RWFifoConsumerCount:
+		return "RW_FIFO_Consumer_Count"
+	case RWFifoDataType:
+		return "RW_FIFO_Data_Type"
+	case RWFifoNoBlock:
+		return "RW_FIFO_No_Block"
+	case ROFifoCapacity:
+		return "RW_FIFO_Capacity"
+	case ROFifoReadFillLevel:
+		return "RO_FIFO_Read_Fill_Level"
+	case ROFifoWriteFillLevel:
+		return "RO_FIFO_Write_Fill_Level"
+	case ROFifoGraphTensorDesc:
+		return "RO_FIFO_Graph_Tensor_Descriptor"
+	case ROFifoState:
+		return "RO_FIFO_State"
+	case ROFifoName:
+		return "RO_FIFO_Name"
+	case ROFifoElemDataSize:
+		return "RO_FIFO_Elem_Data_Size"
+	case RWFifoHostTensorDesc:
+		return "RW_FIFO_Host_Tensor_Descriptor"
+	default:
+		return "Unknown"
+	}
+}
+
+// Decode decodes raw options data and returns it. The returned data can be asserted into particular type
+// It returns error if the data fail to be converted into the option native type
+func (fo FifoOption) Decode(data []byte) (interface{}, error) {
+	buf := bytes.NewReader(data)
+	switch fo {
+	case RWFifoType, RWFifoConsumerCount, RWFifoDataType, RWFifoNoBlock, ROFifoCapacity,
+		ROFifoReadFillLevel, ROFifoWriteFillLevel, ROFifoElemDataSize, ROFifoState:
+		var val uint32
+		if err := binary.Read(buf, binary.LittleEndian, &val); err != nil {
+			return nil, err
+		}
+
+		// this is safe as we expect val to be int
+		return uint(val), nil
+
+	case ROFifoName:
+		return string(data), nil
+
+	default:
+		var val struct {
+			BatchSize uint32
+			Channels  uint32
+			Width     uint32
+			Height    uint32
+			Size      uint32
+			CStride   uint32
+			WStride   uint32
+			HStride   uint32
+			DataType  int32
+		}
+
+		if err := binary.Read(buf, binary.LittleEndian, &val); err != nil {
+			return nil, err
+		}
+
+		return &TensorDesc{
+			BatchSize: uint(val.BatchSize),
+			Channels:  uint(val.Channels),
+			Width:     uint(val.Width),
+			Height:    uint(val.Height),
+			Size:      uint(val.Size),
+			CStride:   uint(val.CStride),
+			WStride:   uint(val.WStride),
+			HStride:   uint(val.HStride),
+			DataType:  FifoDataType(val.DataType),
+		}, nil
+	}
+
+	return nil, nil
+}
 
 // FifoOpts specifies FIFO configuration options
 type FifoOpts struct {
@@ -445,6 +515,10 @@ func (f *Fifo) Allocate(d *Device, td *TensorDesc, numElem uint) error {
 // For more information:
 // https://movidius.github.io/ncsdk/ncapi/ncapi2/c_api/ncFifoGetOption.html
 func (f *Fifo) GetOption(opt FifoOption) ([]byte, error) {
+	if opt == RWFifoNoBlock {
+		return nil, fmt.Errorf("Not implemented")
+	}
+
 	optsData := C.OptionsData{}
 
 	c := C.ncs_FifoGetOption(f.handle, C.int(opt), &optsData)
@@ -464,14 +538,36 @@ func (f *Fifo) GetOption(opt FifoOption) ([]byte, error) {
 	return C.GoBytes(unsafe.Pointer(optsData.data), C.int(optsData.length)), nil
 }
 
+// GetOptionsWithSize queries FIFO options and returns it encoded in a byte slice of the same size as requested if possible. This function is similar to GetOption(), however as opposed to figuring out the byte size of the queried options it attempts to request the options data by specifying its size explicitly. Because we specify the options data size explicitly this function returns the options data faster.
+// It returns error if it fails to retrieve the options or if the requested size of the options is invalid.
+//
+// For more information:
+// https://movidius.github.io/ncsdk/ncapi/ncapi2/c_api/ncFifoGetOption.html
+func (f *Fifo) GetOptionWithSize(opt FifoOption, size uint) ([]byte, error) {
+	if opt == RWFifoNoBlock {
+		return nil, fmt.Errorf("Not implemented")
+	}
+
+	optsData := C.OptionsData{}
+	optsData.length = C.uint(size)
+
+	c := C.ncs_FifoGetOption(f.handle, C.int(opt), &optsData)
+
+	if StatusCode(c) != StatusOK {
+		return nil, fmt.Errorf("Failed to get FIFO options: %s", StatusCode(c))
+	}
+
+	return C.GoBytes(unsafe.Pointer(optsData.data), C.int(optsData.length)), nil
+}
+
 // WriteElem writes an element to a FIFO, usually an input tensor for inference along with some metadata
 // If it fails to write the element it returns error
 //
 // For more information:
 // https://movidius.github.io/ncsdk/ncapi/ncapi2/c_api/ncFifoWriteElem.html
-func (f *Fifo) WriteElem(tensorData []byte, metaData interface{}) error {
-	tensorDataLen := C.uint(len(tensorData))
-	c := C.ncs_FifoWriteElem(f.handle, unsafe.Pointer(&tensorData[0]), &tensorDataLen, unsafe.Pointer(&metaData))
+func (f *Fifo) WriteElem(data []byte, metaData interface{}) error {
+	dataLen := C.uint(len(data))
+	c := C.ncs_FifoWriteElem(f.handle, unsafe.Pointer(&data[0]), &dataLen, unsafe.Pointer(&metaData))
 
 	if StatusCode(c) != StatusOK {
 		return fmt.Errorf("Failed to write FIFO element: %s", StatusCode(c))
@@ -486,14 +582,30 @@ func (f *Fifo) WriteElem(tensorData []byte, metaData interface{}) error {
 // For more information:
 // https://movidius.github.io/ncsdk/ncapi/ncapi2/c_api/ncFifoReadElem.html
 func (f *Fifo) ReadElem() (*Tensor, error) {
-	// TODO: implement ReadElem
-	c := StatusUnsupportedFeature
+	opts, err := f.GetOptionWithSize(ROFifoElemDataSize, C.sizeof_int)
+	//opts, err := f.GetOption(ROFifoElemDataSize)
+	if err != nil {
+		return nil, err
+	}
+
+	elemSize, err := ROFifoElemDataSize.Decode(opts)
+	if err != nil {
+		return nil, err
+	}
+
+	var data unsafe.Pointer
+	var metaData unsafe.Pointer
+	size := C.uint(elemSize.(uint))
+
+	c := C.ncs_FifoReadElem(f.handle, data, &size, &metaData)
 
 	if StatusCode(c) != StatusOK {
 		return nil, fmt.Errorf("Failed to read FIFO element: %s", StatusCode(c))
 	}
 
-	return nil, nil
+	return &Tensor{
+		Data: C.GoBytes(data, C.int(size)),
+	}, nil
 }
 
 // RemoveElem removes an element from a FIFO
