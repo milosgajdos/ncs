@@ -60,6 +60,26 @@ int ncs_FifoCreate(const char* name, ncFifoType_t type, void** fifoHandle) {
         return int(s);
 }
 
+int ncs_FifoAllocate(void* fifoHandle, void* deviceHandle, struct ncTensorDescriptor_t* tensorDesc, unsigned int numElem) {
+        ncStatus_t s = ncFifoAllocate((struct ncFifoHandle_t*) fifoHandle, (struct ncDeviceHandle_t*) deviceHandle,
+                        (struct ncTensorDescriptor_t*) tensorDesc, numElem);
+        return int(s);
+}
+int ncs_FifoGetOption(void* fifoHandle, int option, OptionsData* optionsData) {
+        ncStatus_t s = ncFifoGetOption((struct ncFifoHandle_t*) fifoHandle, option, optionsData->data, &(optionsData->length));
+        return int(s);
+}
+
+int ncs_FifoWriteElem(void* fifoHandle, const void *inputTensor, unsigned int* inputTensorLength, void* userParam) {
+        ncStatus_t s = ncFifoWriteElem((struct ncFifoHandle_t*) fifoHandle, inputTensor, inputTensorLength, userParam);
+        return int(s);
+}
+
+int ncs_FifoReadElem(void* fifoHandle, void *outputData, unsigned int* outputDataLen, void **userParam) {
+        ncStatus_t s = ncFifoReadElem((struct ncFifoHandle_t*) fifoHandle, outputData, outputDataLen, userParam);
+        return int(s);
+}
+
 int ncs_FifoDestroy(void** fifoHandle) {
         ncStatus_t s = ncFifoDestroy((struct ncFifoHandle_t**) fifoHandle);
         return int(s);
