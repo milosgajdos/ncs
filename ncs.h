@@ -44,6 +44,7 @@ int ncs_GraphQueueInference(void* graphHandle,
                 void** outFifoHandle, unsigned int outFifoCount);
 int ncs_GraphQueueInferenceWithFifoElem(void* graphHandle, void* inFifoHandle, void* outFifoHandle,
                 const void* inputTensor, unsigned int* inputTensorLength, void* userParam);
+int ncs_GraphGetOption(void* graphHandle, int option, OptionsData* optionsData);
 int ncs_GraphDestroy(void **graphHandle);
 
 // FIFO functions

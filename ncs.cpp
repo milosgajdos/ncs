@@ -65,6 +65,11 @@ int ncs_GraphQueueInferenceWithFifoElem(void* graphHandle, void* inFifoHandle, v
         return int(s);
 }
 
+int ncs_GraphGetOption(void* graphHandle, int option, OptionsData* optionsData) {
+        ncStatus_t s = ncGraphGetOption((struct ncGraphHandle_t*) graphHandle, option, optionsData->data, &(optionsData->length));
+        return int(s);
+}
+
 int ncs_GraphDestroy(void** graphHandle) {
         ncStatus_t s = ncGraphDestroy((struct ncGraphHandle_t**) graphHandle);
         return int(s);

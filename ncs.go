@@ -253,11 +253,9 @@ func (g GraphOption) String() string {
 
 // Graph is NCSDK neural network graph
 type Graph struct {
-	name    string
-	handle  unsafe.Pointer
-	device  *Device
-	inFifo  *Fifo
-	outFifo *Fifo
+	name   string
+	handle unsafe.Pointer
+	device *Device
 }
 
 // NewGraph creates new Graph with given name and returns it
@@ -321,16 +319,11 @@ func (g *Graph) AllocateWithFifosOpts(d *Device, graphData []byte, inOpts *FifoO
 		return nil, fmt.Errorf("Failed to allocate graph with FIFOs: %s", StatusCode(c))
 	}
 
-	inFifo := &Fifo{handle: inHandle, device: d}
-	outFifo := &Fifo{handle: outHandle, device: d}
-
 	g.device = d
-	g.inFifo = inFifo
-	g.outFifo = outFifo
 
 	return &FifoQueue{
-		In:  g.inFifo,
-		Out: g.outFifo,
+		In:  &Fifo{handle: inHandle, device: d},
+		Out: &Fifo{handle: outHandle, device: d},
 	}, nil
 }
 
@@ -363,6 +356,35 @@ func (g *Graph) QueueInferenceWithFifoElem(f *FifoQueue, data []byte, metaData i
 	}
 
 	return nil
+}
+
+// GetOption queries the value of an option for a graph and returns it encoded in a byte slice
+// It returns error if it failed to retrieve the option value
+//
+// For more information:
+// https://movidius.github.io/ncsdk/ncapi/ncapi2/c_api/ncGraphGetOption.html
+func (g *Graph) GetOption(opt GraphOption) ([]byte, error) {
+	if opt == RWGraphExecutorsCount {
+		return nil, fmt.Errorf("Not implemented")
+	}
+
+	optsData := C.OptionsData{}
+
+	c := C.ncs_GraphGetOption(g.handle, C.int(opt), &optsData)
+
+	if StatusCode(c) == StatusInvalidDataLength {
+		// allocate the data with correct size and try again
+		optsData.data = C.malloc(C.sizeof_char * C.ulong(optsData.length))
+		defer C.free(unsafe.Pointer(optsData.data))
+
+		c = C.ncs_GraphGetOption(g.handle, C.int(opt), &optsData)
+
+		if StatusCode(c) != StatusOK {
+			return nil, fmt.Errorf("Failed to get Graph option: %s", StatusCode(c))
+		}
+	}
+
+	return C.GoBytes(unsafe.Pointer(optsData.data), C.int(optsData.length)), nil
 }
 
 // Destroy destroys NCS graph handle and frees associated resources.
@@ -536,8 +558,16 @@ func (fo FifoOption) String() string {
 func (fo FifoOption) Decode(data []byte) (interface{}, error) {
 	buf := bytes.NewReader(data)
 	switch fo {
-	case RWFifoType, RWFifoConsumerCount, RWFifoDataType, RWFifoNoBlock, ROFifoCapacity,
-		ROFifoReadFillLevel, ROFifoWriteFillLevel, ROFifoElemDataSize, ROFifoState:
+	case RWFifoType,
+		RWFifoConsumerCount,
+		RWFifoDataType,
+		RWFifoNoBlock,
+		ROFifoCapacity,
+		ROFifoReadFillLevel,
+		ROFifoWriteFillLevel,
+		ROFifoElemDataSize,
+		ROFifoState:
+
 		var val uint32
 		if err := binary.Read(buf, binary.LittleEndian, &val); err != nil {
 			return nil, err
