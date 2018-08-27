@@ -368,23 +368,47 @@ func (g *Graph) GetOption(opt GraphOption) ([]byte, error) {
 		return nil, fmt.Errorf("Not implemented")
 	}
 
-	optsData := C.OptionsData{}
+	var data unsafe.Pointer
+	var dataLen C.uint
 
-	c := C.ncs_GraphGetOption(g.handle, C.int(opt), &optsData)
+	c := C.ncs_GraphGetOption(g.handle, C.int(opt), data, &dataLen)
 
 	if StatusCode(c) == StatusInvalidDataLength {
 		// allocate the data with correct size and try again
-		optsData.data = C.malloc(C.sizeof_char * C.ulong(optsData.length))
-		defer C.free(unsafe.Pointer(optsData.data))
+		data = C.malloc(C.sizeof_char * C.ulong(dataLen))
+		defer C.free(unsafe.Pointer(data))
 
-		c = C.ncs_GraphGetOption(g.handle, C.int(opt), &optsData)
+		c = C.ncs_GraphGetOption(g.handle, C.int(opt), data, &dataLen)
 
 		if StatusCode(c) != StatusOK {
 			return nil, fmt.Errorf("Failed to get Graph option: %s", StatusCode(c))
 		}
 	}
 
-	return C.GoBytes(unsafe.Pointer(optsData.data), C.int(optsData.length)), nil
+	return C.GoBytes(unsafe.Pointer(data), C.int(dataLen)), nil
+}
+
+// GetOptionsWithSize queries graph options and returns it encoded in a byte slice of the same size as requested if possible. This function is similar to GetOption(), however as opposed to figuring out the byte size of the queried options it attempts to request the options data by specifying its size explicitly. Because we specify the options data size explicitly this function returns the options data faster.
+// It returns error if it fails to retrieve the options or if the requested size of the options is invalid.
+//
+// For more information:
+// https://movidius.github.io/ncsdk/ncapi/ncapi2/c_api/ncGraphGetOption.html
+func (g *Graph) GetOptionWithSize(opt GraphOption, size uint) ([]byte, error) {
+	if opt == RWGraphExecutorsCount {
+		return nil, fmt.Errorf("Not implemented")
+	}
+
+	data := C.malloc(C.sizeof_char * C.ulong(size))
+	defer C.free(unsafe.Pointer(data))
+	dataLen := C.uint(size)
+
+	c := C.ncs_GraphGetOption(g.handle, C.int(opt), data, &dataLen)
+
+	if StatusCode(c) != StatusOK {
+		return nil, fmt.Errorf("Failed to get FIFO options: %s", StatusCode(c))
+	}
+
+	return C.GoBytes(unsafe.Pointer(data), C.int(dataLen)), nil
 }
 
 // Destroy destroys NCS graph handle and frees associated resources.
@@ -684,23 +708,25 @@ func (f *Fifo) GetOption(opt FifoOption) ([]byte, error) {
 		return nil, fmt.Errorf("Not implemented")
 	}
 
-	optsData := C.OptionsData{}
+	var data unsafe.Pointer
+	var dataLen C.uint
 
-	c := C.ncs_FifoGetOption(f.handle, C.int(opt), &optsData)
+	c := C.ncs_FifoGetOption(f.handle, C.int(opt), data, &dataLen)
 
 	if StatusCode(c) == StatusInvalidDataLength {
+		//fmt.Printf("REALLOCATING FREAKING %s DATA LEN TO: %d\n", opt, optsData.length)
 		// allocate the data with correct size and try again
-		optsData.data = C.malloc(C.sizeof_char * C.ulong(optsData.length))
-		defer C.free(unsafe.Pointer(optsData.data))
+		data = C.malloc(C.sizeof_char * C.ulong(dataLen))
+		defer C.free(unsafe.Pointer(data))
 
-		c = C.ncs_FifoGetOption(f.handle, C.int(opt), &optsData)
+		c = C.ncs_FifoGetOption(f.handle, C.int(opt), data, &dataLen)
 
 		if StatusCode(c) != StatusOK {
 			return nil, fmt.Errorf("Failed to get FIFO options: %s", StatusCode(c))
 		}
 	}
 
-	return C.GoBytes(unsafe.Pointer(optsData.data), C.int(optsData.length)), nil
+	return C.GoBytes(unsafe.Pointer(data), C.int(dataLen)), nil
 }
 
 // GetOptionsWithSize queries FIFO options and returns it encoded in a byte slice of the same size as requested if possible. This function is similar to GetOption(), however as opposed to figuring out the byte size of the queried options it attempts to request the options data by specifying its size explicitly. Because we specify the options data size explicitly this function returns the options data faster.
@@ -713,16 +739,17 @@ func (f *Fifo) GetOptionWithSize(opt FifoOption, size uint) ([]byte, error) {
 		return nil, fmt.Errorf("Not implemented")
 	}
 
-	optsData := C.OptionsData{}
-	optsData.length = C.uint(size)
+	data := C.malloc(C.sizeof_char * C.ulong(size))
+	defer C.free(unsafe.Pointer(data))
+	dataLen := C.uint(size)
 
-	c := C.ncs_FifoGetOption(f.handle, C.int(opt), &optsData)
+	c := C.ncs_FifoGetOption(f.handle, C.int(opt), data, &dataLen)
 
 	if StatusCode(c) != StatusOK {
 		return nil, fmt.Errorf("Failed to get FIFO options: %s", StatusCode(c))
 	}
 
-	return C.GoBytes(unsafe.Pointer(optsData.data), C.int(optsData.length)), nil
+	return C.GoBytes(unsafe.Pointer(data), C.int(dataLen)), nil
 }
 
 // WriteElem writes an element to a FIFO, usually an input tensor for inference along with some metadata
@@ -749,7 +776,6 @@ func (f *Fifo) WriteElem(data []byte, metaData interface{}) error {
 // https://movidius.github.io/ncsdk/ncapi/ncapi2/c_api/ncFifoReadElem.html
 func (f *Fifo) ReadElem() (*Tensor, error) {
 	opts, err := f.GetOptionWithSize(ROFifoElemDataSize, C.sizeof_int)
-	//opts, err := f.GetOption(ROFifoElemDataSize)
 	if err != nil {
 		return nil, err
 	}
@@ -759,9 +785,9 @@ func (f *Fifo) ReadElem() (*Tensor, error) {
 		return nil, err
 	}
 
-	var data unsafe.Pointer
 	var metaData unsafe.Pointer
 	size := C.uint(elemSize.(uint))
+	data := C.malloc(C.sizeof_char * C.ulong(elemSize.(uint)))
 
 	c := C.ncs_FifoReadElem(f.handle, data, &size, &metaData)
 

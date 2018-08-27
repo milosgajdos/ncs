@@ -65,8 +65,8 @@ int ncs_GraphQueueInferenceWithFifoElem(void* graphHandle, void* inFifoHandle, v
         return int(s);
 }
 
-int ncs_GraphGetOption(void* graphHandle, int option, OptionsData* optionsData) {
-        ncStatus_t s = ncGraphGetOption((struct ncGraphHandle_t*) graphHandle, option, optionsData->data, &(optionsData->length));
+int ncs_GraphGetOption(void* graphHandle, int option, void *data, unsigned int *dataLength) {
+        ncStatus_t s = ncGraphGetOption((struct ncGraphHandle_t*) graphHandle, option, data, dataLength);
         return int(s);
 }
 
@@ -85,8 +85,8 @@ int ncs_FifoAllocate(void* fifoHandle, void* deviceHandle, struct ncTensorDescri
                         (struct ncTensorDescriptor_t*) tensorDesc, numElem);
         return int(s);
 }
-int ncs_FifoGetOption(void* fifoHandle, int option, OptionsData* optionsData) {
-        ncStatus_t s = ncFifoGetOption((struct ncFifoHandle_t*) fifoHandle, option, optionsData->data, &(optionsData->length));
+int ncs_FifoGetOption(void* fifoHandle, int option, void *data, unsigned int *dataLength) {
+        ncStatus_t s = ncFifoGetOption((struct ncFifoHandle_t*) fifoHandle, option, data, dataLength);
         return int(s);
 }
 
