@@ -11,10 +11,10 @@ Current NCSDK API coverage should give you all the tools to use Movidius NCS to 
 
 # Quick start
 
-On MacOS, clone macos branch:
+On MacOS, clone `macos-V2` branch:
 
 ```shell
-$ git clone -b macos https://github.com/milosgajdos83/ncsdk.git
+$ git clone -b macos-V2 https://github.com/milosgajdos83/ncsdk.git
 ```
 
 Build ncsdk API libraries:
