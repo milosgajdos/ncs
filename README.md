@@ -1,13 +1,13 @@
 # ncs
 
-[![GoDoc](https://github.com/milosgajdos83/ncs?status.svg)](https://github.com/milosgajdos83/ncs)
+[![GoDoc](https://godoc.org/github.com/milosgajdos83/ncs?status.svg)](https://godoc.org/github.com/milosgajdos83/ncs)
 [![License](https://img.shields.io/:license-apache-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
-Neural Compute Stick V2 API Go binding
+Neural Compute Stick V2.0 API Go binding
 
-Current NCSDK API coverage should give you all the tools to use Movidius NCS to perform inference.
+**WARNING, NCSDK API V2 IS BROKEN on macOS AT THE MOMENT**
 
-**WARNING, NCSDK API V2 IS BADLY BROKEN AT THE MOMENT**
+Current NCSDK API coverage should give you all the tools to use Movidius NCS to perform Neural Network inference.
 
 # Quick start
 
@@ -37,79 +37,61 @@ The example below shows how to created and destroy the basic types the NCSDK API
 package main
 
 import (
-	"fmt"
-	"os"
+	"log"
 
 	"github.com/milosgajdos83/ncs"
 )
 
-func ExitOnErr(err error) {
-	if err != nil {
-		fmt.Println("Error:", err)
-		os.Exit(1)
-	}
-}
-
 func main() {
-	fmt.Println("Creating NCS device handle")
+	var err error
+	defer func() {
+		if err != nil {
+			log.Fatalf("Error: %s", err)
+		}
+	}()
+	log.Printf("Attempting to create NCS device handle")
 	dev, err := ncs.NewDevice(0)
-	ExitOnErr(err)
-	fmt.Println("NCS device handle created")
+	if err != nil {
+		return
+	}
+	defer dev.Destroy()
+	log.Printf("NCS device handle successfully created")
 
-	fmt.Println("Opening NCS device")
+	log.Printf("Attempting to open NCS device")
 	err = dev.Open()
-	ExitOnErr(err)
-	fmt.Println("NCS device opened")
+	if err != nil {
+		return
+	}
+	defer dev.Close()
+	log.Printf("NCS device successfully opened")
 
-	fmt.Println("Creating NCS graph handle")
-	graph, err := ncs.NewGraph("TestGraph")
-	ExitOnErr(err)
-	fmt.Println("NCS graph created")
+	log.Printf("Attempting to create NCS graph handle")
+	graph, err := ncs.NewGraph("SqueezenetGraph")
+	if err != nil {
+		return
+	}
+	defer graph.Destroy()
+	log.Printf("NCS graph handle successfully created")
 
-	fmt.Println("Creating NCS FIFO handle")
+	log.Printf("Attempting to create NCS FIFO handle")
 	fifo, err := ncs.NewFifo("TestFIFO", ncs.FifoHostRO)
-	ExitOnErr(err)
-	fmt.Println("NCS FIFO handle created")
-
-	fmt.Println("Destroying NCS FIFO")
-	err = fifo.Destroy()
-	ExitOnErr(err)
-	fmt.Println("NCS FIFO destroyed")
-
-	fmt.Println("Destroyig NCS graph")
-	err = graph.Destroy()
-	ExitOnErr(err)
-	fmt.Println("NCS graph destroyed")
-
-	fmt.Println("Closing NCS device")
-	err = dev.Close()
-	ExitOnErr(err)
-	fmt.Println("NCS device closed")
-
-	fmt.Println("Destroyig NCS device")
-	err = dev.Destroy()
-	ExitOnErr(err)
-	fmt.Println("NCS device destroyed")
+	defer fifo.Destroy()
+	if err != nil {
+		return
+	}
+	log.Printf("NCS FIFO handle successfully created")
 }
 ```
 
 If your Movidius NCS device is plugged in you should see the following output when running the program above:
 
 ```console
-Creating NCS device handle
-NCS device handle created
-Opening NCS device
-NCS device opened
-Creating NCS graph handle
-NCS graph created
-Creating NCS FIFO handle
-NCS FIFO handle created
-Destroying NCS FIFO
-NCS FIFO destroyed
-Destroyig NCS graph
-NCS graph destroyed
-Closing NCS device
-NCS device closed
-Destroyig NCS device
-NCS device destroyed
+2018/08/27 00:43:00 Attempting to create NCS device handle
+2018/08/27 00:43:00 NCS device handle successfully created
+2018/08/27 00:43:00 Attempting to open NCS device
+2018/08/27 00:43:03 NCS device successfully opened
+2018/08/27 00:43:03 Attempting to create NCS graph handle
+2018/08/27 00:43:03 NCS graph handle successfully created
+2018/08/27 00:43:03 Attempting to create NCS FIFO handle
+2018/08/27 00:43:03 NCS FIFO handle successfully created
 ```
