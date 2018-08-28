@@ -9,9 +9,13 @@ Example in this directory uses [SqueezeNet](https://arxiv.org/abs/1602.07360) ca
 
 This example uses C/C++ NCSDK 2.0, so make sure you have it installed by following the instructions [here](https://movidius.github.io/ncsdk/install.html)
 
+Note, since the 2.0 API does not seem to work properly on macOS, you won't be able to run this example on macOS. Everything works fine on Linux, in particular this example was tested on `Ubuntu 16.04`
+
 ## Running the example
 
-You can run this example as follows
+Note, the example program contains hardcoded paths to the compiled Movidius graph file, the image of acoustic guitar and the SqueezeNet labels.
+
+You can run this example as follows:
 
 ```console
 go run main.go
