@@ -14,6 +14,7 @@ typedef ncFifoDataType_t ncFifoDataType;
 // Device Functions
 int ncs_DeviceCreate(int idx, void **deviceHandle);
 int ncs_DeviceOpen(void* deviceHandle);
+int ncs_DeviceGetOption(void* deviceHandle, int option, void *data, unsigned int *dataLength);
 int ncs_DeviceClose(void* deviceHandle);
 int ncs_DeviceDestroy(void **deviceHandle);
 

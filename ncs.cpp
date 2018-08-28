@@ -11,6 +11,11 @@ int ncs_DeviceOpen(void* deviceHandle) {
     return int(s);
 }
 
+int ncs_DeviceGetOption(void* deviceHandle, int option, void *data, unsigned int *dataLength) {
+        ncStatus_t s = ncDeviceGetOption((struct ncDeviceHandle_t*) deviceHandle, option, data, dataLength);
+        return int(s);
+}
+
 int ncs_DeviceClose(void* deviceHandle) {
     ncStatus_t s = ncDeviceClose((struct ncDeviceHandle_t*) deviceHandle);
     return int(s);

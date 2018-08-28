@@ -12,13 +12,48 @@ import (
 	"unsafe"
 )
 
-// StatusCode is the NCSDK API status code as returned by most API calls.
+// getOption is a utility function which lets you query various NCS options
+func getOption(resource string, handle unsafe.Pointer, option int, size uint) ([]byte, error) {
+	// allocate buffer for options data
+	data := C.malloc(C.sizeof_char * C.ulong(size))
+	defer C.free(unsafe.Pointer(data))
+	dataLen := C.uint(size)
+
+	// NCCS API status code
+	var s C.int
+
+	switch resource {
+	case "device":
+		s = C.ncs_DeviceGetOption(handle, C.int(option), data, &dataLen)
+	case "graph":
+		s = C.ncs_GraphGetOption(handle, C.int(option), data, &dataLen)
+	case "fifo":
+		s = C.ncs_FifoGetOption(handle, C.int(option), data, &dataLen)
+	default:
+		return nil, fmt.Errorf("Unknown resource: %s", resource)
+	}
+
+	if Status(s) != StatusOK {
+		return nil, fmt.Errorf("Failed to get %s option: %s", resource, Status(s))
+	}
+
+	return C.GoBytes(unsafe.Pointer(data), C.int(size)), nil
+}
+
+const (
+	// ThermalBufferSize the size of the temperature buffer as returned when querying device
+	ThermalBufferSize = 100
+	// MaxNameSize is the maximum lengrth of device or graph name size
+	MaxNameSize = 28
+)
+
+// Status is the NCSDK API status code as returned by most API calls.
 // It usually reports the status of the neural compute stick.
-type StatusCode int
+type Status int
 
 const (
 	// StatusOK means the API function call worked as expected
-	StatusOK StatusCode = -iota
+	StatusOK Status = -iota
 	// StatusBusy means device is busy, retry later.
 	StatusBusy
 	// StatusError means an unexpected error was encountered during the API function call.
@@ -52,42 +87,148 @@ const (
 )
 
 // String method to satisfy fmt.Stringer interface
-func (nc StatusCode) String() string {
-	switch nc {
+func (s Status) String() string {
+	switch s {
 	case StatusOK:
-		return "DEVICE_OK"
+		return "STATUS_OK"
 	case StatusBusy:
 		return "DEVICE_BUSY"
 	case StatusError:
-		return "DEVICE_UNEXPECTED_ERROR"
+		return "UNEXPECTED_ERROR"
 	case StatusOutOfMemory:
-		return "DEVICE_HOST_OUT_OF_MEMORY"
+		return "HOST_OUT_OF_MEMORY"
 	case StatusDeviceNotFound:
 		return "DEVICE_NOT_FOUND"
 	case StatusInvalidParameters:
-		return "DEVICE_INVALID_PARAMETERS"
+		return "INVALID_PARAMETERS"
 	case StatusTimeout:
-		return "DEVICE_TIMEOUT"
+		return "TIMEOUT"
 	case StatusCmdNotFound:
-		return "DEVICE_BOOTLOADER_NOT_FOUND"
+		return "BOOTLOADER_NOT_FOUND"
 	case StatusNotAllocated:
-		return "DEVICE_UNALLOCATED_RESOURCE"
+		return "UNALLOCATED_RESOURCE"
 	case StatusUnauthorized:
-		return "DEVICE_UNAUTHORIZED_OPERATION"
+		return "UNAUTHORIZED_OPERATION"
 	case StatusUnsupportedGraphFile:
-		return "DEVICE_UNSUPPORTED_GRAPH_FORMAT"
+		return "UNSUPPORTED_GRAPH_FILE"
 	case StatusUnsupportedConfigFile:
-		return "DEVICE_UNSUPPORTED_CONFIGURATION"
+		return "UNSUPPORTED_CONFIGURATION"
 	case StatusUnsupportedFeature:
-		return "DEVICE_UNSUPPORTED_FEATURE"
+		return "UNSUPPORTED_FEATURE"
 	case StatusMyriadError:
-		return "DEVICE_MOVIDIUS_VPU_ERROR"
+		return "MOVIDIUS_VPU_ERROR"
 	case StatusInvalidDataLength:
-		return "DEVICE_INVALID_OPTION_PARAMETERS_LENGTH"
+		return "INVALID_OPTION_LENGTH"
 	case StatusInvalidHandle:
-		return "DEVICE_INVALID_HANDLE"
+		return "INVALID_HANDLE"
 	default:
-		return "DEVICE_UNKNOWN_STATE"
+		return "UNKNOWN_STATUS"
+	}
+}
+
+// DeviceOption defines NCS options
+type DeviceOption int
+
+const (
+	// RODeviceThermalStats allows to query device temperatures in degrees Celsius
+	// This option returns []float64 array of maxi temperatures for the last ThermalBufferSize seconds.
+	RODeviceThermalStats DeviceOption = (2000 + iota)
+	// RODeviceThermalThrottling allows to query temperature throttling level
+	RODeviceThermalThrottle
+	// RODeviceState qieries state of the device
+	RODeviceState
+	// RODeviceMemoryUsed allows to query current memory in use on the device in bytes.
+	// Returned value must be divided by RODeviceMemorySize if the percentage of memory needs to be computed
+	RODeviceMemoryUsed
+	// RODeviceMemorySize queries total memory available on the device in bytes
+	RODeviceMemorySize
+	// RODeviceMaxFifoCount queries maximum number of FIFOs that can be allocated for the device
+	RODeviceMaxFifoCount
+	// RODeviceAllocatedFifoCount queries number of FIFOs currently allocated for the device
+	RODeviceAllocatedFifoCount
+	// RODeviceMaxMaxGraphCount queries the maximum number of graphs that can be allocated for the device
+	RODeviceMaxGraphCount
+	// RODeviceAllocatedGraphCount queries the number of graphs currently allocated for the device
+	RODeviceAllocatedGraphCount
+	// RODeviceClassLimit queries the highest option class supported
+	RODeviceClassLimit
+	// RODeviceFirmwareVersion queries queries the version of the firmware currently running on the device
+	RODeviceFirmwareVersion
+	// RODeviceDebugInfo queries more detailed info when the result of a function call was StatusMyriadError
+	RODeviceDebugInfo
+	// RODeviceMVTensorVersion queries the version of the mvtensor library that was linked with the API
+	RODeviceMVTensorVersion
+	// RODeviceName queries the internal name of the device
+	RODeviceName
+	// RODeviceMaxExecutors is reserved for future use
+	RODeviceMaxExecutors
+	// RODeviceHWVersion queries the hardware version of the device
+	RODeviceHWVersion
+)
+
+// String implements fmt.Stringer interface for DeviceOption
+func (do DeviceOption) String() string {
+	switch do {
+	case RODeviceThermalStats:
+		return "RO_DEVICE_THERMAL_STATE"
+	case RODeviceThermalThrottle:
+		return "RO_DEVICE_THERMAL_THROTTLE"
+	case RODeviceState:
+		return "RO_DEVICE_STATE"
+	case RODeviceMemoryUsed:
+		return "RO_DEVICE_MEMORY_USED"
+	case RODeviceMemorySize:
+		return "RO_DEVICE_MEMORY_SIZE"
+	case RODeviceMaxFifoCount:
+		return "RO_DEVICE_MAX_FIFO_COUNT"
+	case RODeviceAllocatedFifoCount:
+		return "RO_DEVICE_ALLOCATED_FIFO_COUNT"
+	case RODeviceMaxGraphCount:
+		return "RO_DEVICE_MAX_GRAPH_COUNT"
+	case RODeviceAllocatedGraphCount:
+		return "RO_DEVICE_ALLOCATED_GRAPH_COUNT"
+	case RODeviceClassLimit:
+		return "RO_DEVICE_CLASS_LIMIT"
+	case RODeviceFirmwareVersion:
+		return "RO_DEVICE_FIRMWARE_VERSION"
+	case RODeviceDebugInfo:
+		return "RO_DEVICE_DEBUG_INFO"
+	case RODeviceMVTensorVersion:
+		return "RO_DEVICE_MVTENSOR_VERSION"
+	case RODeviceName:
+		return "RO_DEVICE_NAME"
+	case RODeviceMaxExecutors:
+		return "RO_DEVICE_MAX_EXECUTORS"
+	case RODeviceHWVersion:
+		return "RO_DEVICE_HW_VERSION"
+	default:
+		return "DEVICE_UNKNOWN_OPTION"
+	}
+}
+
+// DeviceState defines NCS device status
+type DeviceState int
+
+const (
+	// DeviceCreated means device has been created
+	DeviceCreated DeviceState = iota
+	// DeviceOpened means device has been opened
+	DeviceOpened
+	// DeviceClosed means device has been closed
+	DeviceClosed
+)
+
+// String implements fmt.Stringer interface for DeviceState
+func (ds DeviceState) String() string {
+	switch ds {
+	case DeviceCreated:
+		return "DEVICE_CREATED"
+	case DeviceOpened:
+		return "DEVICE_OPENED"
+	case DeviceClosed:
+		return "DEVICE_CLOSED"
+	default:
+		return "DEVICE_UNKNOWN_STATUS"
 	}
 }
 
@@ -103,10 +244,10 @@ type Device struct {
 func NewDevice(index int) (*Device, error) {
 	var handle unsafe.Pointer
 
-	c := C.ncs_DeviceCreate(C.int(index), &handle)
+	s := C.ncs_DeviceCreate(C.int(index), &handle)
 
-	if StatusCode(c) != StatusOK {
-		return nil, fmt.Errorf("Failed to create new device: %s", StatusCode(c))
+	if Status(s) != StatusOK {
+		return nil, fmt.Errorf("Failed to create new device: %s", Status(s))
 	}
 
 	return &Device{handle: handle}, nil
@@ -118,13 +259,48 @@ func NewDevice(index int) (*Device, error) {
 // For more information:
 // https://movidius.github.io/ncsdk/ncapi/ncapi2/c_api/ncDeviceOpen.html
 func (d *Device) Open() error {
-	c := C.ncs_DeviceOpen(d.handle)
+	s := C.ncs_DeviceOpen(d.handle)
 
-	if StatusCode(c) != StatusOK {
-		return fmt.Errorf("Failed to open device: %s", StatusCode(c))
+	if Status(s) != StatusOK {
+		return fmt.Errorf("Failed to open device: %s", Status(s))
 	}
 
 	return nil
+}
+
+// GetOption queries the value of an option for the device and returns it in a byte slice
+// It returns error if it failed to retrieve the option value
+//
+// For more information:
+// https://movidius.github.io/ncsdk/ncapi/ncapi2/c_api/ncDeviceGetOption.html
+func (d *Device) GetOption(opt DeviceOption) ([]byte, error) {
+	if opt == RODeviceMaxExecutors || opt == RODeviceDebugInfo {
+		return nil, fmt.Errorf("Option %s not implemented", opt)
+	}
+
+	var data unsafe.Pointer
+	var dataLen C.uint
+
+	s := C.ncs_DeviceGetOption(d.handle, C.int(opt), data, &dataLen)
+
+	if Status(s) == StatusInvalidDataLength {
+		return d.GetOptionWithSize(opt, uint(dataLen))
+	}
+
+	return nil, fmt.Errorf("Failed to read %s option", opt)
+}
+
+// GetOptionsWithSize queries device options and returns it encoded in a byte slice of the same size as requested if possible. This function is similar to GetOption(), however as opposed to figuring out the byte size of the queried options it attempts to request the options data by specifying its size explicitly. Because we specify the options data size explicitly this function returns the options data faster.
+// It returns error if it fails to retrieve the options or if the requested size of the options is invalid.
+//
+// For more information:
+// https://movidius.github.io/ncsdk/ncapi/ncapi2/c_api/ncDeviceGetOption.html
+func (d *Device) GetOptionWithSize(opt DeviceOption, size uint) ([]byte, error) {
+	if opt == RODeviceMaxExecutors || opt == RODeviceDebugInfo {
+		return nil, fmt.Errorf("Option %s not implemented", opt)
+	}
+
+	return getOption("device", d.handle, int(opt), size)
 }
 
 // Close closes the communication channel with NCS device.
@@ -133,10 +309,10 @@ func (d *Device) Open() error {
 // For more information:
 // https://movidius.github.io/ncsdk/ncapi/ncapi2/c_api/ncDeviceClose.html
 func (d *Device) Close() error {
-	c := C.ncs_DeviceClose(d.handle)
+	s := C.ncs_DeviceClose(d.handle)
 
-	if StatusCode(c) != StatusOK {
-		return fmt.Errorf("Failed to close device: %s", StatusCode(c))
+	if Status(s) != StatusOK {
+		return fmt.Errorf("Failed to close device: %s", Status(s))
 	}
 
 	return nil
@@ -148,10 +324,10 @@ func (d *Device) Close() error {
 // For more information:
 // https://movidius.github.io/ncsdk/ncapi/ncapi2/c_api/ncDeviceDestroy.html
 func (d *Device) Destroy() error {
-	c := C.ncs_DeviceDestroy(&d.handle)
+	s := C.ncs_DeviceDestroy(&d.handle)
 
-	if StatusCode(c) != StatusOK {
-		return fmt.Errorf("Failed to destroy device: %s", StatusCode(c))
+	if Status(s) != StatusOK {
+		return fmt.Errorf("Failed to destroy device: %s", Status(s))
 	}
 
 	return nil
@@ -269,10 +445,10 @@ func NewGraph(name string) (*Graph, error) {
 	_name := C.CString(name)
 	defer C.free(unsafe.Pointer(_name))
 
-	c := C.ncs_GraphCreate(_name, &handle)
+	s := C.ncs_GraphCreate(_name, &handle)
 
-	if StatusCode(c) != StatusOK {
-		return nil, fmt.Errorf("Failed to create new graph: %s", StatusCode(c))
+	if Status(s) != StatusOK {
+		return nil, fmt.Errorf("Failed to create new graph: %s", Status(s))
 	}
 
 	return &Graph{name: name, handle: handle}, nil
@@ -284,10 +460,10 @@ func NewGraph(name string) (*Graph, error) {
 // For more information:
 // https://movidius.github.io/ncsdk/ncapi/ncapi2/c_api/ncGraphAllocate.html
 func (g *Graph) Allocate(d *Device, graphData []byte) error {
-	c := C.ncs_GraphAllocate(d.handle, g.handle, unsafe.Pointer(&graphData[0]), C.uint(len(graphData)))
+	s := C.ncs_GraphAllocate(d.handle, g.handle, unsafe.Pointer(&graphData[0]), C.uint(len(graphData)))
 
-	if StatusCode(c) != StatusOK {
-		return fmt.Errorf("Failed to allocate new graph: %s", StatusCode(c))
+	if Status(s) != StatusOK {
+		return fmt.Errorf("Failed to allocate new graph: %s", Status(s))
 	}
 
 	g.device = d
@@ -310,13 +486,13 @@ func (g *Graph) AllocateWithFifosDefault(d *Device, graphData []byte) (*FifoQueu
 func (g *Graph) AllocateWithFifosOpts(d *Device, graphData []byte, inOpts *FifoOpts, outOpts *FifoOpts) (*FifoQueue, error) {
 	var inHandle, outHandle unsafe.Pointer
 
-	c := C.ncs_GraphAllocateWithFifosEx(d.handle,
+	s := C.ncs_GraphAllocateWithFifosEx(d.handle,
 		g.handle, unsafe.Pointer(&graphData[0]), C.uint(len(graphData)),
 		&inHandle, C.ncFifoType(inOpts.Type), C.int(inOpts.NumElem), C.ncFifoDataType(inOpts.DataType),
 		&outHandle, C.ncFifoType(outOpts.Type), C.int(outOpts.NumElem), C.ncFifoDataType(outOpts.DataType))
 
-	if StatusCode(c) != StatusOK {
-		return nil, fmt.Errorf("Failed to allocate graph with FIFOs: %s", StatusCode(c))
+	if Status(s) != StatusOK {
+		return nil, fmt.Errorf("Failed to allocate graph with FIFOs: %s", Status(s))
 	}
 
 	g.device = d
@@ -333,10 +509,10 @@ func (g *Graph) AllocateWithFifosOpts(d *Device, graphData []byte, inOpts *FifoO
 // For more information:
 // https://movidius.github.io/ncsdk/ncapi/ncapi2/c_api/ncGraphQueueInference.html
 func (g *Graph) QueueInference(f *FifoQueue) error {
-	c := C.ncs_GraphQueueInference(g.handle, &f.In.handle, C.uint(1), &f.Out.handle, C.uint(1))
+	s := C.ncs_GraphQueueInference(g.handle, &f.In.handle, C.uint(1), &f.Out.handle, C.uint(1))
 
-	if StatusCode(c) != StatusOK {
-		return fmt.Errorf("Failed to queue inference: %s", StatusCode(c))
+	if Status(s) != StatusOK {
+		return fmt.Errorf("Failed to queue inference: %s", Status(s))
 	}
 
 	return nil
@@ -349,10 +525,10 @@ func (g *Graph) QueueInference(f *FifoQueue) error {
 func (g *Graph) QueueInferenceWithFifoElem(f *FifoQueue, data []byte, metaData interface{}) error {
 	dataLen := C.uint(len(data))
 
-	c := C.ncs_GraphQueueInferenceWithFifoElem(g.handle, f.In.handle, f.Out.handle, unsafe.Pointer(&data[0]), &dataLen, unsafe.Pointer(&metaData))
+	s := C.ncs_GraphQueueInferenceWithFifoElem(g.handle, f.In.handle, f.Out.handle, unsafe.Pointer(&data[0]), &dataLen, unsafe.Pointer(&metaData))
 
-	if StatusCode(c) != StatusOK {
-		return fmt.Errorf("Failed to queue inference: %s", StatusCode(c))
+	if Status(s) != StatusOK {
+		return fmt.Errorf("Failed to queue inference: %s", Status(s))
 	}
 
 	return nil
@@ -365,27 +541,19 @@ func (g *Graph) QueueInferenceWithFifoElem(f *FifoQueue, data []byte, metaData i
 // https://movidius.github.io/ncsdk/ncapi/ncapi2/c_api/ncGraphGetOption.html
 func (g *Graph) GetOption(opt GraphOption) ([]byte, error) {
 	if opt == RWGraphExecutorsCount {
-		return nil, fmt.Errorf("Not implemented")
+		return nil, fmt.Errorf("Option %s not implemented", opt)
 	}
 
 	var data unsafe.Pointer
 	var dataLen C.uint
 
-	c := C.ncs_GraphGetOption(g.handle, C.int(opt), data, &dataLen)
+	s := C.ncs_GraphGetOption(g.handle, C.int(opt), data, &dataLen)
 
-	if StatusCode(c) == StatusInvalidDataLength {
-		// allocate the data with correct size and try again
-		data = C.malloc(C.sizeof_char * C.ulong(dataLen))
-		defer C.free(unsafe.Pointer(data))
-
-		c = C.ncs_GraphGetOption(g.handle, C.int(opt), data, &dataLen)
-
-		if StatusCode(c) != StatusOK {
-			return nil, fmt.Errorf("Failed to get Graph option: %s", StatusCode(c))
-		}
+	if Status(s) == StatusInvalidDataLength {
+		return g.GetOptionWithSize(opt, uint(dataLen))
 	}
 
-	return C.GoBytes(unsafe.Pointer(data), C.int(dataLen)), nil
+	return nil, fmt.Errorf("Failed to read %s option", opt)
 }
 
 // GetOptionsWithSize queries graph options and returns it encoded in a byte slice of the same size as requested if possible. This function is similar to GetOption(), however as opposed to figuring out the byte size of the queried options it attempts to request the options data by specifying its size explicitly. Because we specify the options data size explicitly this function returns the options data faster.
@@ -395,20 +563,10 @@ func (g *Graph) GetOption(opt GraphOption) ([]byte, error) {
 // https://movidius.github.io/ncsdk/ncapi/ncapi2/c_api/ncGraphGetOption.html
 func (g *Graph) GetOptionWithSize(opt GraphOption, size uint) ([]byte, error) {
 	if opt == RWGraphExecutorsCount {
-		return nil, fmt.Errorf("Not implemented")
+		return nil, fmt.Errorf("Option %s not implemented", opt)
 	}
 
-	data := C.malloc(C.sizeof_char * C.ulong(size))
-	defer C.free(unsafe.Pointer(data))
-	dataLen := C.uint(size)
-
-	c := C.ncs_GraphGetOption(g.handle, C.int(opt), data, &dataLen)
-
-	if StatusCode(c) != StatusOK {
-		return nil, fmt.Errorf("Failed to get FIFO options: %s", StatusCode(c))
-	}
-
-	return C.GoBytes(unsafe.Pointer(data), C.int(dataLen)), nil
+	return getOption("graph", g.handle, int(opt), size)
 }
 
 // Destroy destroys NCS graph handle and frees associated resources.
@@ -417,10 +575,10 @@ func (g *Graph) GetOptionWithSize(opt GraphOption, size uint) ([]byte, error) {
 // For more information:
 // https://movidius.github.io/ncsdk/ncapi/ncapi2/c_api/ncGraphDestroy.html
 func (g *Graph) Destroy() error {
-	c := C.ncs_GraphDestroy(&g.handle)
+	s := C.ncs_GraphDestroy(&g.handle)
 
-	if StatusCode(c) != StatusOK {
-		return fmt.Errorf("Failed to destroy graph: %s", StatusCode(c))
+	if Status(s) != StatusOK {
+		return fmt.Errorf("Failed to destroy graph: %s", Status(s))
 	}
 
 	return nil
@@ -674,10 +832,10 @@ func NewFifo(name string, t FifoType) (*Fifo, error) {
 	_name := C.CString(name)
 	defer C.free(unsafe.Pointer(_name))
 
-	c := C.ncs_FifoCreate(_name, C.ncFifoType(t), &handle)
+	s := C.ncs_FifoCreate(_name, C.ncFifoType(t), &handle)
 
-	if StatusCode(c) != StatusOK {
-		return nil, fmt.Errorf("Failed to create new FIFO: %s", StatusCode(c))
+	if Status(s) != StatusOK {
+		return nil, fmt.Errorf("Failed to create new FIFO: %s", Status(s))
 	}
 
 	return &Fifo{name: name, handle: handle}, nil
@@ -701,10 +859,10 @@ func (f *Fifo) Allocate(d *Device, td *TensorDesc, numElem uint) error {
 		dataType:  C.ncFifoDataType(td.DataType),
 	}
 
-	c := C.ncs_FifoAllocate(f.handle, d.handle, &_td, C.uint(numElem))
+	s := C.ncs_FifoAllocate(f.handle, d.handle, &_td, C.uint(numElem))
 
-	if StatusCode(c) != StatusOK {
-		return fmt.Errorf("Failed to allocate FIFO: %s", StatusCode(c))
+	if Status(s) != StatusOK {
+		return fmt.Errorf("Failed to allocate FIFO: %s", Status(s))
 	}
 
 	return nil
@@ -717,28 +875,19 @@ func (f *Fifo) Allocate(d *Device, td *TensorDesc, numElem uint) error {
 // https://movidius.github.io/ncsdk/ncapi/ncapi2/c_api/ncFifoGetOption.html
 func (f *Fifo) GetOption(opt FifoOption) ([]byte, error) {
 	if opt == RWFifoNoBlock {
-		return nil, fmt.Errorf("Not implemented")
+		return nil, fmt.Errorf("Option %s not implemented", opt)
 	}
 
 	var data unsafe.Pointer
 	var dataLen C.uint
 
-	c := C.ncs_FifoGetOption(f.handle, C.int(opt), data, &dataLen)
+	s := C.ncs_FifoGetOption(f.handle, C.int(opt), data, &dataLen)
 
-	if StatusCode(c) == StatusInvalidDataLength {
-		//fmt.Printf("REALLOCATING FREAKING %s DATA LEN TO: %d\n", opt, optsData.length)
-		// allocate the data with correct size and try again
-		data = C.malloc(C.sizeof_char * C.ulong(dataLen))
-		defer C.free(unsafe.Pointer(data))
-
-		c = C.ncs_FifoGetOption(f.handle, C.int(opt), data, &dataLen)
-
-		if StatusCode(c) != StatusOK {
-			return nil, fmt.Errorf("Failed to get FIFO options: %s", StatusCode(c))
-		}
+	if Status(s) == StatusInvalidDataLength {
+		return f.GetOptionWithSize(opt, uint(dataLen))
 	}
 
-	return C.GoBytes(unsafe.Pointer(data), C.int(dataLen)), nil
+	return nil, fmt.Errorf("Failed to read %s option", opt)
 }
 
 // GetOptionsWithSize queries FIFO options and returns it encoded in a byte slice of the same size as requested if possible. This function is similar to GetOption(), however as opposed to figuring out the byte size of the queried options it attempts to request the options data by specifying its size explicitly. Because we specify the options data size explicitly this function returns the options data faster.
@@ -748,20 +897,10 @@ func (f *Fifo) GetOption(opt FifoOption) ([]byte, error) {
 // https://movidius.github.io/ncsdk/ncapi/ncapi2/c_api/ncFifoGetOption.html
 func (f *Fifo) GetOptionWithSize(opt FifoOption, size uint) ([]byte, error) {
 	if opt == RWFifoNoBlock {
-		return nil, fmt.Errorf("Not implemented")
+		return nil, fmt.Errorf("Option %s not implemented", opt)
 	}
 
-	data := C.malloc(C.sizeof_char * C.ulong(size))
-	defer C.free(unsafe.Pointer(data))
-	dataLen := C.uint(size)
-
-	c := C.ncs_FifoGetOption(f.handle, C.int(opt), data, &dataLen)
-
-	if StatusCode(c) != StatusOK {
-		return nil, fmt.Errorf("Failed to get FIFO options: %s", StatusCode(c))
-	}
-
-	return C.GoBytes(unsafe.Pointer(data), C.int(dataLen)), nil
+	return getOption("fifo", f.handle, int(opt), size)
 }
 
 // WriteElem writes an element to a FIFO, usually an input tensor for inference along with some metadata
@@ -772,10 +911,10 @@ func (f *Fifo) GetOptionWithSize(opt FifoOption, size uint) ([]byte, error) {
 func (f *Fifo) WriteElem(data []byte, metaData interface{}) error {
 	dataLen := C.uint(len(data))
 
-	c := C.ncs_FifoWriteElem(f.handle, unsafe.Pointer(&data[0]), &dataLen, unsafe.Pointer(&metaData))
+	s := C.ncs_FifoWriteElem(f.handle, unsafe.Pointer(&data[0]), &dataLen, unsafe.Pointer(&metaData))
 
-	if StatusCode(c) != StatusOK {
-		return fmt.Errorf("Failed to write FIFO element: %s", StatusCode(c))
+	if Status(s) != StatusOK {
+		return fmt.Errorf("Failed to write FIFO element: %s", Status(s))
 	}
 
 	return nil
@@ -801,10 +940,10 @@ func (f *Fifo) ReadElem() (*Tensor, error) {
 	size := C.uint(elemSize.(uint))
 	data := C.malloc(C.sizeof_char * C.ulong(elemSize.(uint)))
 
-	c := C.ncs_FifoReadElem(f.handle, data, &size, &metaData)
+	s := C.ncs_FifoReadElem(f.handle, data, &size, &metaData)
 
-	if StatusCode(c) != StatusOK {
-		return nil, fmt.Errorf("Failed to read FIFO element: %s", StatusCode(c))
+	if Status(s) != StatusOK {
+		return nil, fmt.Errorf("Failed to read FIFO element: %s", Status(s))
 	}
 
 	return &Tensor{
@@ -828,10 +967,10 @@ func (f *Fifo) RemoveElem() error {
 // For more information:
 // https://movidius.github.io/ncsdk/ncapi/ncapi2/c_api/ncFifoDestroy.html
 func (f *Fifo) Destroy() error {
-	c := C.ncs_FifoDestroy(&f.handle)
+	s := C.ncs_FifoDestroy(&f.handle)
 
-	if StatusCode(c) != StatusOK {
-		return fmt.Errorf("Failed to destroy FIFO: %s", StatusCode(c))
+	if Status(s) != StatusOK {
+		return fmt.Errorf("Failed to destroy FIFO: %s", Status(s))
 	}
 
 	return nil
