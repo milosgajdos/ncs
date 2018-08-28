@@ -490,6 +490,18 @@ const (
 	FifoFP32
 )
 
+// String implements fmt.Stringer interface for FifoDataType
+func (fd FifoDataType) String() string {
+	switch fd {
+	case FifoFP16:
+		return "FIFO_FLOAT_16"
+	case FifoFP32:
+		return "FIFO_FLOAT_32"
+	default:
+		return "FFIO_UNKNOWN_DATA_TYPE"
+	}
+}
+
 // FifoState is state of FIFO
 type FifoState int
 
