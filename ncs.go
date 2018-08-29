@@ -287,7 +287,7 @@ func (d *Device) GetOption(opt DeviceOption) ([]byte, error) {
 		return d.GetOptionWithSize(opt, uint(dataLen))
 	}
 
-	return nil, fmt.Errorf("Failed to read %s option", opt)
+	return nil, fmt.Errorf("Failed to read %s option: %s", opt, Status(s))
 }
 
 // GetOptionsWithSize queries device options and returns it encoded in a byte slice of the same size as requested if possible. This function is similar to GetOption(), however as opposed to figuring out the byte size of the queried options it attempts to request the options data by specifying its size explicitly. Because we specify the options data size explicitly this function returns the options data faster.
@@ -553,7 +553,7 @@ func (g *Graph) GetOption(opt GraphOption) ([]byte, error) {
 		return g.GetOptionWithSize(opt, uint(dataLen))
 	}
 
-	return nil, fmt.Errorf("Failed to read %s option", opt)
+	return nil, fmt.Errorf("Failed to read %s option: %s", opt, Status(s))
 }
 
 // GetOptionsWithSize queries graph options and returns it encoded in a byte slice of the same size as requested if possible. This function is similar to GetOption(), however as opposed to figuring out the byte size of the queried options it attempts to request the options data by specifying its size explicitly. Because we specify the options data size explicitly this function returns the options data faster.
@@ -887,7 +887,7 @@ func (f *Fifo) GetOption(opt FifoOption) ([]byte, error) {
 		return f.GetOptionWithSize(opt, uint(dataLen))
 	}
 
-	return nil, fmt.Errorf("Failed to read %s option", opt)
+	return nil, fmt.Errorf("Failed to read %s option: %s", opt, Status(s))
 }
 
 // GetOptionsWithSize queries FIFO options and returns it encoded in a byte slice of the same size as requested if possible. This function is similar to GetOption(), however as opposed to figuring out the byte size of the queried options it attempts to request the options data by specifying its size explicitly. Because we specify the options data size explicitly this function returns the options data faster.
