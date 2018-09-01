@@ -6,6 +6,8 @@ package ncs
 */
 import "C"
 import (
+	"bytes"
+	"encoding/binary"
 	"fmt"
 	"unsafe"
 )
@@ -100,9 +102,9 @@ func (g GraphOption) String() string {
 	case ROGraphOutputCount:
 		return "GRAPH_OUTPUT_COUNT"
 	case ROGraphInputTensorDesc:
-		return "GRAPH_INPUT_TENSOR_DESCRIPTION"
+		return "GRAPH_INPUT_TENSOR_DESCRIPTORS"
 	case ROGraphOutputTensorDesc:
-		return "GRAPH_OUTPUT_TENSOR_DESCRIPTION"
+		return "GRAPH_OUTPUT_TENSOR_DESCRIPTORS"
 	case ROGraphDebugInfo:
 		return "GRAPH_DEBUG_INFO"
 	case ROGraphName:
@@ -125,9 +127,91 @@ func (g GraphOption) Value() int {
 	return int(g)
 }
 
-// Decode decodes raw options data and returns it. The returned data can be asserted into its native type.
+// Decode decodes options data encoded in raw bytes and returns it in its native type.
+// The returned data then can be asserted into its native type.
+// If the data contains more than one element you need to specify the number of expected elements via count.
 // It returns error if the data fails to be decoded into the option native type.
-func (g GraphOption) Decode(data []byte) (interface{}, error) {
+func (g GraphOption) Decode(data []byte, count int) (interface{}, error) {
+	buf := bytes.NewReader(data)
+
+	switch g {
+	case ROGraphState,
+		ROGraphInputCount,
+		ROGraphOutputCount,
+		ROGraphOptionClassLimit,
+		RWGraphExecutorsCount,
+		ROGraphInferenceTimeSize:
+
+		var val uint32
+		if err := binary.Read(buf, binary.LittleEndian, &val); err != nil {
+			return nil, err
+		}
+
+		// this is safe type cast as we know val is a positive integer
+		return uint(val), nil
+
+	case ROGraphInferenceTime:
+		val := make([]float32, count)
+		if err := binary.Read(buf, binary.LittleEndian, &val); err != nil {
+			return nil, err
+		}
+
+		return val[:], nil
+
+	case ROGraphVersion:
+
+		var val [2]uint32
+		if err := binary.Read(buf, binary.LittleEndian, &val); err != nil {
+			return nil, err
+		}
+
+		return val[:], nil
+
+	case ROGraphDebugInfo,
+		ROGraphName:
+
+		return string(data), nil
+
+	case ROGraphInputTensorDesc,
+		ROGraphOutputTensorDesc:
+		vals := make([]struct {
+			BatchSize uint32
+			Channels  uint32
+			Width     uint32
+			Height    uint32
+			Size      uint32
+			CStride   uint32
+			WStride   uint32
+			HStride   uint32
+			DataType  int32
+		}, count)
+
+		if err := binary.Read(buf, binary.LittleEndian, &vals); err != nil {
+			return nil, err
+		}
+
+		tensorDescs := make([]TensorDesc, count)
+		for i, val := range vals {
+			td := TensorDesc{
+				BatchSize: uint(val.BatchSize),
+				Channels:  uint(val.Channels),
+				Width:     uint(val.Width),
+				Height:    uint(val.Height),
+				Size:      uint(val.Size),
+				CStride:   uint(val.CStride),
+				WStride:   uint(val.WStride),
+				HStride:   uint(val.HStride),
+				DataType:  FifoDataType(val.DataType),
+			}
+			tensorDescs[i] = td
+		}
+
+		return tensorDescs[:], nil
+
+	default:
+		return nil, fmt.Errorf("Unable to decode graph option data: %s", g)
+	}
+
 	return nil, nil
 }
 

@@ -166,9 +166,11 @@ func (fo FifoOption) Value() int {
 	return int(fo)
 }
 
-// Decode decodes raw options data and returns it. The returned data can be asserted into its native type.
+// Decode decodes options data encoded in raw bytes and returns it in its native type.
+// The returned data can be asserted into its native type.
+// If the data contains more than one element you need to specify the number of expected elements via count.
 // It returns error if the data fails to be decoded into the option native type.
-func (fo FifoOption) Decode(data []byte) (interface{}, error) {
+func (fo FifoOption) Decode(data []byte, count int) (interface{}, error) {
 	buf := bytes.NewReader(data)
 
 	switch fo {
@@ -355,7 +357,7 @@ func (f *Fifo) ReadElem() (*Tensor, error) {
 		return nil, err
 	}
 
-	elemSize, err := ROFifoElemDataSize.Decode(opts)
+	elemSize, err := ROFifoElemDataSize.Decode(opts, 1)
 	if err != nil {
 		return nil, err
 	}

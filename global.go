@@ -105,7 +105,7 @@ type Option interface {
 	// Value returns Option value as its integer code
 	Value() int
 	// Decode decodes raw byte slice option data as returned from NCS
-	Decode([]byte) (interface{}, error)
+	Decode([]byte, int) (interface{}, error)
 }
 
 // TensorDesc describes NCS graph inputs and outputs

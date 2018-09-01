@@ -166,9 +166,11 @@ func (do DeviceOption) Value() int {
 	return int(do)
 }
 
-// Decode decodes raw options data and returns it. The returned data can be asserted into its native type.
+// Decode decodes options data encoded in raw bytes and returns it in its native type.
+// The returned data can be asserted into its native type.
+// If the data contains more than one element you need to specify the number of expected elements via count.
 // It returns error if the data fails to be decoded into the option native type.
-func (do DeviceOption) Decode(data []byte) (interface{}, error) {
+func (do DeviceOption) Decode(data []byte, count int) (interface{}, error) {
 	buf := bytes.NewReader(data)
 
 	switch do {
