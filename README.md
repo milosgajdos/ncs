@@ -5,7 +5,7 @@
 
 Neural Compute Stick V2.0 API Go binding
 
-**WARNING, NCSDK API V2 IS BROKEN on macOS AT THE MOMENT**
+**WARNING, NCSDK API V2 IS PARTIALLY BROKEN on macOS AT THE MOMENT -- EVERYTHING WORKD FINE ON LINUX**
 
 Current NCSDK API coverage should give you all the tools to use Movidius NCS to perform Neural Network inference.
 
@@ -31,7 +31,7 @@ $ cd ../../examples/apps/hello_ncs_cpp/ && make run
 
 # Example Go program
 
-The example below shows how to created and destroy the basic types the NCSDK API 2.0 provides
+The example below shows how to create and destroy the basic resource types the NCSDK API 2.0 provides. For more complex examples please see [examples](./examples)
 
 ```go
 package main
