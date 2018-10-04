@@ -4,7 +4,7 @@ Example in this directory uses [MobileNetV2: Inverted Residuals and Linear Bottl
 
 <img src="./panda.jpg" alt="gian panda" width="227">
 
-[image source](https://upload.wikimedia.org/wikipedia/commons/f/fe/Giant_Panda_in_Beijing_Zoo_1.JPG -O panda.jpg)
+[image source](https://upload.wikimedia.org/wikipedia/commons/f/fe/Giant_Panda_in_Beijing_Zoo_1.JPG)
 
 This example uses [mobilenet_v2_1.0_224](https://storage.googleapis.com/mobilenet_v2/checkpoints/mobilenet_v2_1.0_224.tgz). You can read more about other available MobilenetV2 models [here](https://github.com/tensorflow/models/tree/master/research/slim/nets/mobilenet).
 
