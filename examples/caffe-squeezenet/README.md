@@ -1,11 +1,12 @@
 # SqueezeNet graph example
 
-Example in this directory uses [SqueezeNet](https://arxiv.org/abs/1602.07360) caffe model to classify the following image of acoustic guitar:
+Example in this directory uses [SqueezeNet](https://arxiv.org/abs/1602.07360) caffe model to classify the following image of an acoustic guitar:
 
 <img src="./nps_acoustic_guitar.png" alt="acoustic guitar" width="227">
 
-
 ## Prerequisites
+
+Install [GoCV](https://github.com/hybridgroup/gocv/#how-to-install).
 
 This example uses C/C++ NCSDK 2.0, so make sure you have it installed by following the instructions [here](https://movidius.github.io/ncsdk/install.html)
 

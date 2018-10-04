@@ -24,8 +24,9 @@ func meanCenter(img gocv.Mat, meanBGR []float64) gocv.Mat {
 
 	// create mean centered image layer by layer
 	meanBMat := gocv.NewMatWithSizeFromScalar(gocv.NewScalar(meanB, meanB, meanB, 0.0), r, c, gocv.MatTypeCV64F)
-	meanGMat := gocv.NewMatWithSizeFromScalar(gocv.NewScalar(meanB, meanG, meanG, 0.0), r, c, gocv.MatTypeCV64F)
-	meanRMat := gocv.NewMatWithSizeFromScalar(gocv.NewScalar(meanB, meanR, meanR, 0.0), r, c, gocv.MatTypeCV64F)
+	meanGMat := gocv.NewMatWithSizeFromScalar(gocv.NewScalar(meanG, meanG, meanG, 0.0), r, c, gocv.MatTypeCV64F)
+	meanRMat := gocv.NewMatWithSizeFromScalar(gocv.NewScalar(meanR, meanR, meanR, 0.0), r, c, gocv.MatTypeCV64F)
+
 	meanMatImg := gocv.NewMat()
 	gocv.Merge([]gocv.Mat{meanBMat, meanGMat, meanRMat}, &meanMatImg)
 	defer meanMatImg.Close()
@@ -117,17 +118,6 @@ func main() {
 	defer queue.In.Destroy()
 	defer queue.Out.Destroy()
 	log.Printf("NCS Graph successfully allocated")
-
-	log.Printf("Attempting to query INPUT FIFO options: %s", ncs.ROFifoElemDataSize)
-	opts, err := queue.In.GetOption(ncs.ROFifoElemDataSize)
-	if err != nil {
-		return
-	}
-	data, err := ncs.ROFifoElemDataSize.Decode(opts)
-	if err != nil {
-		return
-	}
-	log.Printf("INPUT FIFO %s: %d", ncs.ROFifoElemDataSize, data.(uint))
 
 	// digital image gymnastics
 	imgPath := filepath.Join("nps_acoustic_guitar.png")

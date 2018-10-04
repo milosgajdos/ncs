@@ -5,9 +5,20 @@
 
 Neural Compute Stick V2.0 API Go binding
 
-**WARNING, NCSDK API V2 IS PARTIALLY BROKEN on macOS AT THE MOMENT -- EVERYTHING WORKD FINE ON LINUX**
+**NCSDK API V2 IS PARTIALLY BROKEN on macOS AT THE MOMENT -- EVERYTHING WORKS FINE ON LINUX**
 
-Current NCSDK API coverage should give you all the tools to use Movidius NCS to perform Neural Network inference.
+The code in this repository has been tested on the following Linux OS:
+
+```
+Distributor ID:	Ubuntu
+Description:	Ubuntu 16.04.5 LTS
+Release:	16.04
+Codename:	xenial
+
+Linux ubuntu-xenial 4.4.0-134-generic #160-Ubuntu SMP Wed Aug 15 14:58:00 UTC 2018 x86_64 x86_64 x86_64 GNU/Linux
+```
+
+The Movidius NCSDK API coverage provided in this repo should give you all the tools to use Movidius NCS to perform Neural Network inference.
 
 # Quick start
 
