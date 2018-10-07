@@ -1,8 +1,8 @@
 # Mobilenet graph example
 
-Example in this directory uses [MobileNetV2: Inverted Residuals and Linear Bottlenecks](https://arxiv.org/abs/1801.04381) [tensorflow](https://www.tensorflow.org/) model to classify an image of a giant panda:
+Example in this directory uses [MobileNetV2: Inverted Residuals and Linear Bottlenecks](https://arxiv.org/abs/1801.04381) [tensorflow](https://www.tensorflow.org/) model to classify an image of panda:
 
-<img src="./panda.jpg" alt="gian panda" width="227">
+<img src="./panda.jpg" alt="giant panda" width="227">
 
 [image source](https://upload.wikimedia.org/wikipedia/commons/f/fe/Giant_Panda_in_Beijing_Zoo_1.JPG)
 
@@ -24,7 +24,7 @@ Note, since the 2.0 API does not seem to work properly on macOS, you won't be ab
 
 ## Running the example
 
-Note, the example program contains hardcoded paths to the compiled Movidius graph file of the MobilenetV2, the image of giant pand and the MobilenetV2 labels.
+Note, the example program contains hardcoded paths to the compiled Movidius graph file of the MobilenetV2, the image of panda and the MobilenetV2 labels.
 
 You can run this example as follows:
 
@@ -46,7 +46,7 @@ Result:
 2018/10/04 19:14:02 Attempting to read image panda.jpg
 2018/10/04 19:14:02 Attempting to queue panda.jpg for inference
 2018/10/04 19:14:02 panda.jpg successfully queued for inference
-2018/10/04 19:14:02 Attempting to read data from the OUTPUT FIFO queue
+2018/10/04 19:14:02 Attempting to read data from the NCS
 2018/10/04 19:14:02 Read suceeded. Read 4004 bytes
 2018/10/04 19:14:02 Reading labels file: imagenet_class_index.json
 2018/10/04 19:14:02 Read 1000 labels from imagenet_class_index.json

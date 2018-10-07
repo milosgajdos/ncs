@@ -81,8 +81,9 @@ func main() {
 		}
 	}()
 	log.Printf("Attempting to create NCS device handle")
-	dev, err := ncs.NewDevice(0)
-	if err != nil {
+	dev, e := ncs.NewDevice(0)
+	if e != nil {
+		err = e
 		return
 	}
 	defer dev.Destroy()
@@ -97,22 +98,27 @@ func main() {
 	log.Printf("NCS device successfully opened")
 
 	log.Printf("Attempting to create NCS graph handle")
-	graph, err := ncs.NewGraph("SqueezenetGraph")
-	if err != nil {
+	graph, e := ncs.NewGraph("SqueezenetGraph")
+	if e != nil {
+		err = e
 		return
 	}
 	defer graph.Destroy()
 	log.Printf("NCS graph handle successfully created")
 
 	graphFileName := "squeezenet_graph"
-	graphData, err := ioutil.ReadFile(graphFileName)
-	if err != nil {
+	graphData, e := ioutil.ReadFile(graphFileName)
+	if e != nil {
+		err = e
 		return
 	}
 
 	log.Printf("Attempting to allocate NCS graph")
-	queue, err := graph.AllocateWithFifosOpts(dev, graphData, &ncs.FifoOpts{ncs.FifoHostWO, ncs.FifoFP32, 2}, &ncs.FifoOpts{ncs.FifoHostRO, ncs.FifoFP32, 2})
-	if err != nil {
+	queue, e := graph.AllocateWithFifosOpts(dev, graphData,
+		&ncs.FifoOpts{ncs.FifoHostWO, ncs.FifoFP32, 2},
+		&ncs.FifoOpts{ncs.FifoHostRO, ncs.FifoFP32, 2})
+	if e != nil {
+		err = e
 		return
 	}
 	defer queue.In.Destroy()
@@ -132,17 +138,19 @@ func main() {
 	}
 	log.Printf("%s successfully queued for inference", imgPath)
 
-	log.Printf("Attempting to read data from the OUTPUT FIFO queue")
-	tensor, err := queue.Out.ReadElem()
-	if err != nil {
+	log.Printf("Attempting to read data from NCS")
+	tensor, e := queue.Out.ReadElem()
+	if e != nil {
+		err = e
 		return
 	}
 	log.Printf("Read suceeded. Read %d bytes", len(tensor.Data))
 
 	labelsPath := filepath.Join("squeeze_synset_words.txt")
 	log.Printf("Reading labels file: %s", labelsPath)
-	labels, err := readLabels(labelsPath)
-	if err != nil {
+	labels, e := readLabels(labelsPath)
+	if e != nil {
+		err = e
 		return
 	}
 	log.Printf("Read %d labels from %s", len(labels), labelsPath)
@@ -150,7 +158,8 @@ func main() {
 	// Decode the result
 	var result [1000]float32
 	buf := bytes.NewReader(tensor.Data)
-	if err := binary.Read(buf, binary.LittleEndian, &result); err != nil {
+	if e := binary.Read(buf, binary.LittleEndian, &result); e != nil {
+		err = e
 		return
 	}
 	// find max and value
