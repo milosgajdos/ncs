@@ -61,8 +61,9 @@ func main() {
 		}
 	}()
 	log.Printf("Attempting to create NCS device handle")
-	dev, err := ncs.NewDevice(0)
-	if err != nil {
+	dev, e := ncs.NewDevice(0)
+	if e != nil {
+                err = e
 		return
 	}
 	defer dev.Destroy()
@@ -77,17 +78,19 @@ func main() {
 	log.Printf("NCS device successfully opened")
 
 	log.Printf("Attempting to create NCS graph handle")
-	graph, err := ncs.NewGraph("SqueezenetGraph")
-	if err != nil {
+	graph, e := ncs.NewGraph("NCSGraph")
+	if e != nil {
+                err = e
 		return
 	}
 	defer graph.Destroy()
 	log.Printf("NCS graph handle successfully created")
 
 	log.Printf("Attempting to create NCS FIFO handle")
-	fifo, err := ncs.NewFifo("TestFIFO", ncs.FifoHostRO)
+	fifo, e := ncs.NewFifo("TestFIFO", ncs.FifoHostRO)
 	defer fifo.Destroy()
-	if err != nil {
+	if e != nil {
+                err = e
 		return
 	}
 	log.Printf("NCS FIFO handle successfully created")
