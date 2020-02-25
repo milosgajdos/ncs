@@ -11,7 +11,7 @@ import (
 	"path/filepath"
 	"strconv"
 
-	"github.com/milosgajdos83/ncs"
+	"github.com/milosgajdos/ncs"
 	"gocv.io/x/gocv"
 )
 

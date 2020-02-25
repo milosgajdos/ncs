@@ -1,6 +1,6 @@
 # ncs
 
-[![GoDoc](https://godoc.org/github.com/milosgajdos83/ncs?status.svg)](https://godoc.org/github.com/milosgajdos83/ncs)
+[![GoDoc](https://godoc.org/github.com/milosgajdos/ncs?status.svg)](https://godoc.org/github.com/milosgajdos/ncs)
 [![License](https://img.shields.io/:license-apache-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
 Neural Compute Stick V2.0 API Go binding
@@ -25,7 +25,7 @@ The Movidius NCSDK API coverage provided in this repo should give you all the to
 On MacOS, clone `macos-V2` branch:
 
 ```shell
-$ git clone -b macos-V2 https://github.com/milosgajdos83/ncsdk.git
+$ git clone -b macos-V2 https://github.com/milosgajdos/ncsdk.git
 ```
 
 Build ncsdk API libraries:
@@ -50,7 +50,7 @@ package main
 import (
 	"log"
 
-	"github.com/milosgajdos83/ncs"
+	"github.com/milosgajdos/ncs"
 )
 
 func main() {
